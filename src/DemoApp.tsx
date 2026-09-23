@@ -49,10 +49,12 @@ function DemoApp() {
       <StoreProvider>
         <DeliveryProvider>
           <AppShell>
-            <div role="status" className="border rounded-lg p-3 mb-4 text-sm">
-              Démonstration — données fictives et actions simulées.{" "}
-              <a href="/" className="underline">
-                Ouvrir l’espace connecté
+            <div role="status" className="border rounded-lg p-3 mb-4 text-xs bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span>
+                <strong>Espace de Test Nettoyé</strong> — Données fictives supprimées. Les livraisons créées sont enregistrées localement dans votre navigateur.
+              </span>
+              <a href="/" className="text-xs font-semibold underline text-primary shrink-0">
+                Ouvrir l’espace connecté Supabase (Mobile live) →
               </a>
             </div>
             <MainContent />
