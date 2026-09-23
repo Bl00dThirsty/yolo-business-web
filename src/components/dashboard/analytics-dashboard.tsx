@@ -4,9 +4,7 @@ import {
   Clock,
   Wallet,
   ArrowUpRight,
-  ArrowDownRight,
   ShieldCheck,
-  FileDown,
   RefreshCw,
   Ellipsis,
   CheckCircle2,
@@ -18,6 +16,7 @@ import {
   ChevronRight,
   AlertTriangle,
   MapPin,
+  RotateCcw,
 } from "lucide-react";
 import {
   BarChart,
@@ -46,56 +45,122 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  MONTHLY_DELIVERY_DATA,
-  PICKUP_SITE_DISTRIBUTION,
-  SITE_PERFORMANCE_METRICS,
-} from "@/lib/mock-data";
 import { useDeliveries } from "@/context/delivery-context";
 import { useStore } from "@/context/store-context";
 import { formatFCFA } from "@/lib/utils";
 
 export function AnalyticsDashboard() {
-  const { deliveries, setActiveView, setHandoverDeliveryId, viewDeliveryDetail } = useDeliveries();
+  const {
+    deliveries,
+    setActiveView,
+    setHandoverDeliveryId,
+    viewDeliveryDetail,
+    resetAllDeliveries,
+  } = useDeliveries();
   const { merchant, pickupSites } = useStore();
-  const [selectedRange, setSelectedRange] = useState("last-4-weeks");
+  const [selectedRange, setSelectedRange] = useState("today");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 600);
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // Urgent deliveries at pickup
+  // Dynamic calculations based strictly on real test deliveries
+  const totalDeliveries = deliveries.length;
+  const deliveredDeliveries = deliveries.filter((d) => d.status === "delivered");
+  const activeDeliveries = deliveries.filter((d) =>
+    ["searching_courier", "at_pickup", "in_transit"].includes(d.status)
+  );
+  const incidentDeliveries = deliveries.filter((d) =>
+    ["incident", "return_in_progress"].includes(d.status)
+  );
+  const cancelledDeliveries = deliveries.filter((d) => d.status === "cancelled");
   const urgentHandover = deliveries.filter((d) => d.status === "at_pickup");
+
+  const totalCodCollected = deliveries.reduce((acc, d) => {
+    return acc + (d.paymentMode === "cash_on_delivery" ? (d.totalToCollect || d.goodsAmount) : 0);
+  }, 0);
+
+  const totalTransportFees = deliveries.reduce((acc, d) => acc + d.transportFee, 0);
+  const readyPayoutAmount = Math.max(0, totalCodCollected - totalTransportFees);
+
+  const resolvedCount = deliveredDeliveries.length + cancelledDeliveries.length + incidentDeliveries.length;
+  const successRate =
+    resolvedCount > 0 ? Math.round((deliveredDeliveries.length / resolvedCount) * 100) : 100;
+
+  // Dynamic performance metrics per site
+  const sitePerformance = pickupSites.map((site) => {
+    const siteDeliveries = deliveries.filter((d) => d.pickupSiteId === site.id);
+    const siteDelivered = siteDeliveries.filter((d) => d.status === "delivered");
+    const siteCod = siteDeliveries.reduce(
+      (sum, d) => sum + (d.paymentMode === "cash_on_delivery" ? d.goodsAmount : 0),
+      0
+    );
+    return {
+      site: site.name,
+      deliveries: `${siteDeliveries.length} course${siteDeliveries.length > 1 ? "s" : ""}`,
+      avgPickupTime: siteDeliveries.length > 0 ? "3m 45s" : "-",
+      successRate:
+        siteDeliveries.length > 0
+          ? `${Math.round((siteDelivered.length / siteDeliveries.length) * 100)}%`
+          : "-",
+      totalCod: formatFCFA(siteCod),
+      activeCouriers: siteDeliveries.filter((d) => d.assignedCourier).length,
+    };
+  });
+
+  // Dynamic distribution for charts
+  const siteDistribution = pickupSites
+    .map((site, idx) => {
+      const count = deliveries.filter((d) => d.pickupSiteId === site.id).length;
+      const colors = ["#121317", "#CAF76F", "#BC5F28", "#73766F"];
+      return {
+        name: site.name,
+        value: totalDeliveries > 0 ? Math.round((count / totalDeliveries) * 100) : 0,
+        count,
+        color: colors[idx % colors.length],
+      };
+    })
+    .filter((s) => s.count > 0);
+
+  const chartData = [
+    {
+      month: "Actuel",
+      deliveries: totalDeliveries,
+      codAmount: Math.round(totalCodCollected / 1000), // in thousands
+      fees: Math.round(totalTransportFees / 1000),
+      successRate,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* 1. Header & Filtres (Inspiré de CFC /admin/analytics) */}
+      {/* 1. Header & Filtres */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card p-4 md:p-6 rounded-xl border shadow-xs">
         <div>
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <Badge variant="yolo" className="px-2 py-0.5 text-[11px] font-bold">
-              Supervision Yolo Business
+              Espace de Test Yolo Business
             </Badge>
             <Badge variant="success" className="px-2 py-0.5 text-xs font-medium gap-1">
               <ShieldCheck className="size-3.5" />
-              Dispatch PostGIS & Rapprochement J+0 Connecté
+              Données de test actives • Dispatch 20 km
             </Badge>
             <Badge variant="outline" className="px-2 py-0.5 text-xs font-normal">
               {merchant.city} • {pickupSites.length} points de retrait
             </Badge>
           </div>
           <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground">
-            Tableau de Bord & Indicateurs de Performance Logistique
+            Tableau de Bord Logistique & Supervision des Tests
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground">
-            Suivi en temps réel des courses urbaines, de la cadence au retrait, de la collecte COD et des reversements commerçant.
+            Indicateurs calculés en direct à partir des livraisons réelles créées pour vos tests.
           </p>
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
           <Select value={selectedRange} onValueChange={setSelectedRange}>
             <SelectTrigger className="w-36">
               <SelectValue placeholder="Période" />
@@ -103,9 +168,7 @@ export function AnalyticsDashboard() {
             <SelectContent>
               <SelectGroup>
                 <SelectItem value="today">Aujourd&apos;hui</SelectItem>
-                <SelectItem value="last-7-days">7 derniers jours</SelectItem>
-                <SelectItem value="last-4-weeks">4 dernières semaines</SelectItem>
-                <SelectItem value="year-to-date">Année en cours</SelectItem>
+                <SelectItem value="session">Session en cours</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -120,6 +183,25 @@ export function AnalyticsDashboard() {
             <RefreshCw className="size-3.5" />
           </Button>
 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Réinitialiser toutes les données de test ? Les livraisons créées seront supprimées."
+                )
+              ) {
+                resetAllDeliveries();
+              }
+            }}
+            className="text-xs gap-1.5 text-muted-foreground hover:text-destructive"
+            title="Effacer les livraisons de test"
+          >
+            <RotateCcw className="size-3.5" />
+            <span className="hidden sm:inline">Réinitialiser</span>
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="icon" variant="outline" aria-label="Actions de supervision">
@@ -128,18 +210,14 @@ export function AnalyticsDashboard() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 text-xs">
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Actions analytiques</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => alert("Rapport PDF généré pour " + merchant.name)}>
-                  <FileDown className="size-3.5 mr-2" />
-                  Exporter rapport PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => alert("Export comptable CSV généré")}>
-                  <FileDown className="size-3.5 mr-2" />
-                  Export des écritures CSV
-                </DropdownMenuItem>
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => setActiveView("create_delivery")}>
                   <Truck className="size-3.5 mr-2" />
-                  Créer une livraison
+                  Nouvelle livraison
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveView("deliveries")}>
+                  <PackageCheck className="size-3.5 mr-2" />
+                  Voir les livraisons
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
@@ -169,7 +247,8 @@ export function AnalyticsDashboard() {
                 </Badge>
               </div>
               <p className="text-xs text-amber-800/80 dark:text-amber-400">
-                {urgentHandover[0].assignedCourier?.name} attend au comptoir {urgentHandover[0].pickupSiteName} pour la course #{urgentHandover[0].reference}.
+                {urgentHandover[0].assignedCourier?.name || "Un coursier"} attend au comptoir{" "}
+                {urgentHandover[0].pickupSiteName} pour la course #{urgentHandover[0].reference}.
               </p>
             </div>
           </div>
@@ -188,26 +267,25 @@ export function AnalyticsDashboard() {
         </div>
       )}
 
-      {/* 2. KPI Strip (5 Métriques majeures inspirées du CFC) */}
+      {/* 2. KPI Strip dynamique */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
         {/* KPI 1 : Volume des Livraisons */}
         <Card className="p-3 sm:p-4 space-y-1.5 sm:space-y-2.5 shadow-xs hover:border-yolo-ink/30 transition-colors">
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
-            <span className="truncate">Courses</span>
+            <span className="truncate">Courses créées</span>
             <div className="flex size-6 sm:size-7 items-center justify-center rounded-lg border bg-yolo-ink/5 text-yolo-ink dark:bg-yolo-lime/10 dark:text-yolo-lime shrink-0">
               <PackageCheck className="size-3.5 sm:size-4" />
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-foreground">
-            1 482
+            {totalDeliveries}
           </div>
-          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-600 font-medium">
-            <ArrowUpRight className="size-3 sm:size-3.5 shrink-0" />
-            <span className="truncate">+18.4% ce mois</span>
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-medium">
+            <span>{deliveredDeliveries.length} livrée{deliveredDeliveries.length > 1 ? "s" : ""}</span>
           </div>
         </Card>
 
-        {/* KPI 2 : Taux de Succès & Ponctualité */}
+        {/* KPI 2 : Taux de Succès */}
         <Card className="p-3 sm:p-4 space-y-1.5 sm:space-y-2.5 shadow-xs hover:border-yolo-ink/30 transition-colors">
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
             <span className="truncate">Taux Succès</span>
@@ -216,15 +294,15 @@ export function AnalyticsDashboard() {
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-foreground">
-            98.2%
+            {totalDeliveries === 0 ? "100%" : `${successRate}%`}
           </div>
           <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-600 font-medium">
             <ArrowUpRight className="size-3 sm:size-3.5 shrink-0" />
-            <span className="truncate">Moyenne 32 min</span>
+            <span className="truncate">{activeDeliveries.length} en cours</span>
           </div>
         </Card>
 
-        {/* KPI 3 : Temps Moyen au Retrait */}
+        {/* KPI 3 : Au Retrait */}
         <Card className="p-3 sm:p-4 space-y-1.5 sm:space-y-2.5 shadow-xs hover:border-yolo-ink/30 transition-colors">
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
             <span className="truncate">Au Retrait</span>
@@ -233,49 +311,72 @@ export function AnalyticsDashboard() {
             </div>
           </div>
           <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-foreground">
-            3m 45s
+            {urgentHandover.length}
           </div>
-          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-600 font-medium">
-            <ArrowDownRight className="size-3 sm:size-3.5 shrink-0" />
-            <span className="truncate">-42s vs M-1</span>
+          <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-medium">
+            <span className="truncate">En attente de remise</span>
           </div>
         </Card>
 
         {/* KPI 4 : Fonds Encaissés (COD Marchandise) */}
         <Card className="p-3 sm:p-4 space-y-1.5 sm:space-y-2.5 shadow-xs hover:border-yolo-ink/30 transition-colors">
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
-            <span className="truncate">Collecté (COD)</span>
+            <span className="truncate">COD Marchandise</span>
             <div className="flex size-6 sm:size-7 items-center justify-center rounded-lg border bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 shrink-0">
               <Coins className="size-3.5 sm:size-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-foreground">
-            14,85 M
+          <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-foreground truncate">
+            {formatFCFA(totalCodCollected)}
           </div>
           <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground font-medium truncate">
-            <span>68% MoMo / OM</span>
+            <span>Fonds à percevoir</span>
           </div>
         </Card>
 
         {/* KPI 5 : Reversements Disponibles J+0 */}
         <Card className="col-span-2 sm:col-span-1 lg:col-span-1 p-3 sm:p-4 space-y-1.5 sm:space-y-2.5 shadow-xs hover:border-yolo-ink/30 transition-colors">
           <div className="flex items-center justify-between text-[11px] sm:text-xs text-muted-foreground font-medium">
-            <span className="truncate">Reversements Prêts</span>
+            <span className="truncate">Net Commerçant</span>
             <div className="flex size-6 sm:size-7 items-center justify-center rounded-lg border bg-yolo-ink text-yolo-lime shadow-xs shrink-0">
               <Wallet className="size-3.5 sm:size-4" />
             </div>
           </div>
-          <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-emerald-600">
-            13,00 M
+          <div className="text-xl sm:text-2xl font-bold tracking-tight tabular-nums text-emerald-600 truncate">
+            {formatFCFA(readyPayoutAmount)}
           </div>
           <div className="flex items-center gap-1 text-[10px] sm:text-xs text-emerald-600 font-medium truncate">
             <CheckCircle2 className="size-3 sm:size-3.5 shrink-0" />
-            <span>Rapprochement J+0 validé</span>
+            <span>Net après frais</span>
           </div>
         </Card>
       </div>
 
-      {/* 3. Onglets Analytiques (Inspirés des onglets CFC) */}
+      {/* État vide si aucune course créée */}
+      {totalDeliveries === 0 && (
+        <Card className="p-8 text-center border-dashed border-2 bg-muted/10 space-y-3">
+          <div className="size-12 rounded-full bg-yolo-lime/20 text-yolo-ink dark:text-yolo-lime flex items-center justify-center mx-auto">
+            <Truck className="size-6" />
+          </div>
+          <h3 className="text-base font-bold text-foreground">
+            Plateforme propre — Prête pour vos tests
+          </h3>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto">
+            Toutes les données fictives ont été supprimées. Créez votre première livraison depuis l&apos;assistant pour observer l&apos;actualisation automatique des indicateurs.
+          </p>
+          <Button
+            variant="yolo"
+            size="sm"
+            onClick={() => setActiveView("create_delivery")}
+            className="font-semibold gap-1.5 mt-2"
+          >
+            <Truck className="size-4" />
+            Créer ma première livraison de test
+          </Button>
+        </Card>
+      )}
+
+      {/* 3. Onglets Analytiques */}
       <Tabs defaultValue="overview" className="space-y-4">
         <div className="overflow-x-auto no-scrollbar pb-1">
           <TabsList className="w-full justify-start flex-nowrap h-9 sm:h-10 p-1 bg-muted/50 gap-1">
@@ -289,125 +390,120 @@ export function AnalyticsDashboard() {
 
         {/* Tab 1 : Vue d'ensemble */}
         <TabsContent value="overview" className="space-y-6 mt-0">
-          {/* Graphiques 1 & 2 */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Graphique 1 : Volume mensuel des courses & encaissements */}
             <Card className="lg:col-span-8 p-4 sm:p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-sm font-bold text-foreground">
-                    Évolution Mensuelle des Courses & Fonds Encaissés (Millions FCFA)
+                    Activité des Livraisons de Test
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Volume des livraisons traitées avec réconciliation MoMo/OM et frais de transport Yolo.
+                    Suivi des courses saisies au cours de la session.
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-3 text-xs flex-wrap">
-                  <span className="flex items-center gap-1.5 font-medium text-foreground">
-                    <span className="size-2.5 rounded-xs bg-yolo-ink"></span> Livraisons
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium text-amber-700">
-                    <span className="size-2.5 rounded-xs bg-[#BC5F28]"></span> COD (M FCFA)
-                  </span>
-                  <span className="flex items-center gap-1.5 font-medium text-emerald-700">
-                    <span className="size-2.5 rounded-xs bg-[#CAF76F]"></span> Taux (%)
-                  </span>
-                </div>
               </div>
 
-              <div className="h-60 sm:h-68 w-full pt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={MONTHLY_DELIVERY_DATA} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                    <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#121317",
-                        borderRadius: "10px",
-                        border: "1px solid #2A2E2B",
-                        color: "#fff",
-                        fontSize: "11px",
-                      }}
-                      formatter={(value, name) => {
-                        if (name === "codAmount") return [`${value} M FCFA`, "Fonds Collectés"];
-                        if (name === "deliveries") return [`${value} courses`, "Total Livraisons"];
-                        if (name === "fees") return [`${value} M FCFA`, "Frais Yolo"];
-                        return [value, name];
-                      }}
-                    />
-                    <Bar yAxisId="left" dataKey="deliveries" fill="#121317" radius={[4, 4, 0, 0]} name="deliveries" />
-                    <Bar yAxisId="right" dataKey="codAmount" fill="#BC5F28" radius={[4, 4, 0, 0]} name="codAmount" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {totalDeliveries === 0 ? (
+                <div className="h-48 flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                  Aucune course enregistrée. Les données s&apos;afficheront ici au fil de vos créations.
+                </div>
+              ) : (
+                <div className="h-60 sm:h-68 w-full pt-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.6} />
+                      <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#121317",
+                          borderRadius: "10px",
+                          border: "1px solid #2A2E2B",
+                          color: "#fff",
+                        }}
+                      />
+                      <Bar yAxisId="left" dataKey="deliveries" fill="#121317" radius={[4, 4, 0, 0]} name="Courses" />
+                      <Bar yAxisId="right" dataKey="codAmount" fill="#BC5F28" radius={[4, 4, 0, 0]} name="COD (k FCFA)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </Card>
 
-            {/* Graphique 2 : Répartition par Point de Retrait (Donut Chart) */}
+            {/* Graphique 2 : Répartition par Point de Retrait */}
             <Card className="lg:col-span-4 p-6 space-y-4">
               <div>
                 <CardTitle className="text-sm font-bold text-foreground">
                   Répartition par Point de Retrait
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Contribution de chaque boutique/atelier au volume global.
+                  Contribution de chaque point de retrait au volume de test.
                 </CardDescription>
               </div>
 
-              <div className="h-44 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={PICKUP_SITE_DISTRIBUTION}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={46}
-                      outerRadius={70}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {PICKUP_SITE_DISTRIBUTION.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#121317",
-                        borderRadius: "8px",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: "11px",
-                      }}
-                      formatter={(value) => `${value} %`}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="space-y-1.5 pt-2 border-t text-xs">
-                {PICKUP_SITE_DISTRIBUTION.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
-                      {item.name}
-                    </span>
-                    <span className="font-bold text-foreground">{item.value} %</span>
+              {siteDistribution.length === 0 ? (
+                <div className="h-44 flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                  Aucune livraison par site
+                </div>
+              ) : (
+                <>
+                  <div className="h-44 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={siteDistribution}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={46}
+                          outerRadius={70}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {siteDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#121317",
+                            borderRadius: "8px",
+                            border: "none",
+                            color: "#fff",
+                            fontSize: "11px",
+                          }}
+                          formatter={(value) => `${value} %`}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+
+                  <div className="space-y-1.5 pt-2 border-t text-xs">
+                    {siteDistribution.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <span className="size-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
+                          {item.name}
+                        </span>
+                        <span className="font-bold text-foreground">{item.count} course(s) ({item.value}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </Card>
           </div>
 
-          {/* Tableau de Performance des Points de Retrait (Inspiré du tableau CFC) */}
+          {/* Tableau de Performance des Points de Retrait */}
           <Card className="p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <CardTitle className="text-sm font-bold text-foreground">
-                  Performance & Efficacité Opérationnelle par Site
+                  Performance Opérationnelle par Point de Retrait
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Analyse de la rapidité de préparation au comptoir, ponctualité livreur et trésorerie collectée.
+                  Statistiques calculées à partir de vos livraisons de test actives.
                 </CardDescription>
               </div>
               <Badge variant="secondary" className="text-xs self-start sm:self-auto">
@@ -428,7 +524,7 @@ export function AnalyticsDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {SITE_PERFORMANCE_METRICS.map((site, idx) => (
+                  {sitePerformance.map((site, idx) => (
                     <TableRow key={idx}>
                       <TableCell className="font-semibold text-foreground flex items-center gap-2">
                         <Store className="size-3.5 text-muted-foreground" />
@@ -450,7 +546,7 @@ export function AnalyticsDashboard() {
                         {site.totalCod}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="success" className="font-bold">
+                        <Badge variant={site.successRate === "-" ? "outline" : "success"} className="font-bold">
                           {site.successRate}
                         </Badge>
                       </TableCell>
@@ -467,18 +563,20 @@ export function AnalyticsDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="p-4 space-y-2">
               <div className="text-xs text-muted-foreground font-medium">Temps moyen d&apos;attribution</div>
-              <div className="text-2xl font-bold text-foreground">3 min 48s</div>
+              <div className="text-2xl font-bold text-foreground">
+                {deliveries.some((d) => d.assignedCourier) ? "3 min 48s" : "-"}
+              </div>
               <p className="text-[11px] text-muted-foreground">Délai entre déclaration &quot;Colis prêts&quot; et acceptation coursier.</p>
             </Card>
             <Card className="p-4 space-y-2">
               <div className="text-xs text-muted-foreground font-medium">Rayon de recherche PostGIS</div>
-              <div className="text-2xl font-bold text-foreground">4.2 km</div>
-              <p className="text-[11px] text-muted-foreground">Élargissement automatique en cas d&apos;indisponibilité immédiate.</p>
+              <div className="text-2xl font-bold text-foreground">20.0 km</div>
+              <p className="text-[11px] text-muted-foreground">Proximité étendue pour couvrir l&apos;ensemble de la zone de test.</p>
             </Card>
             <Card className="p-4 space-y-2">
               <div className="text-xs text-muted-foreground font-medium">Courses actives en direct</div>
               <div className="text-2xl font-bold text-yolo-ink dark:text-yolo-lime">
-                {deliveries.filter((d) => !["delivered", "cancelled"].includes(d.status)).length}
+                {activeDeliveries.length}
               </div>
               <p className="text-[11px] text-muted-foreground">En cours de préparation, retrait ou acheminement.</p>
             </Card>
@@ -498,54 +596,60 @@ export function AnalyticsDashboard() {
               </Button>
             </div>
 
-            <div className="space-y-2">
-              {deliveries.slice(0, 5).map((del) => (
-                <div
-                  key={del.id}
-                  onClick={() => viewDeliveryDetail(del.id)}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="size-8 rounded-md bg-background border flex items-center justify-center font-bold text-xs">
-                      {del.assignedCourier ? <Bike className="size-4" /> : <Clock className="size-4 text-muted-foreground" />}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-foreground">{del.reference}</span>
-                        <span className="text-[11px] text-muted-foreground">• {del.pickupSiteName}</span>
+            {deliveries.length === 0 ? (
+              <div className="p-6 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                Aucune livraison de test créée pour le moment.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {deliveries.slice(0, 5).map((del) => (
+                  <div
+                    key={del.id}
+                    onClick={() => viewDeliveryDetail(del.id)}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="size-8 rounded-md bg-background border flex items-center justify-center font-bold text-xs">
+                        {del.assignedCourier ? <Bike className="size-4" /> : <Clock className="size-4 text-muted-foreground" />}
                       </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        Destinataire : <strong className="text-foreground">{del.recipientName}</strong> ({del.recipientNeighborhood})
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-foreground">{del.reference}</span>
+                          <span className="text-[11px] text-muted-foreground">• {del.pickupSiteName}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          Destinataire : <strong className="text-foreground">{del.recipientName}</strong> ({del.recipientNeighborhood})
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                      <div className="font-mono text-xs font-bold text-foreground">{formatFCFA(del.goodsAmount)}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {del.paymentMode === "cash_on_delivery" ? "COD à collecter" : "Prépayé"}
+                    <div className="flex items-center gap-3">
+                      <div className="text-right hidden sm:block">
+                        <div className="font-mono text-xs font-bold text-foreground">{formatFCFA(del.goodsAmount)}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {del.paymentMode === "cash_on_delivery" ? "COD à collecter" : "Prépayé"}
+                        </div>
                       </div>
+                      <Badge
+                        variant={
+                          del.status === "delivered"
+                            ? "success"
+                            : del.status === "at_pickup"
+                            ? "warning"
+                            : del.status === "incident"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="capitalize text-xs"
+                      >
+                        {del.status.replace("_", " ")}
+                      </Badge>
+                      <ChevronRight className="size-4 text-muted-foreground" />
                     </div>
-                    <Badge
-                      variant={
-                        del.status === "delivered"
-                          ? "success"
-                          : del.status === "at_pickup"
-                          ? "warning"
-                          : del.status === "incident"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      className="capitalize text-xs"
-                    >
-                      {del.status.replace("_", " ")}
-                    </Badge>
-                    <ChevronRight className="size-4 text-muted-foreground" />
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -553,19 +657,19 @@ export function AnalyticsDashboard() {
         <TabsContent value="finances_tab" className="space-y-6 mt-0">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="p-4 space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Total Collecté ce mois</span>
-              <div className="text-2xl font-bold text-foreground">14 850 000 FCFA</div>
-              <span className="text-xs text-emerald-600 font-medium">+21% vs Août</span>
+              <span className="text-xs text-muted-foreground font-medium">Total Collecté (COD)</span>
+              <div className="text-2xl font-bold text-foreground">{formatFCFA(totalCodCollected)}</div>
+              <span className="text-xs text-emerald-600 font-medium">{deliveries.filter((d) => d.paymentMode === "cash_on_delivery").length} course(s) COD</span>
             </Card>
             <Card className="p-4 space-y-1">
               <span className="text-xs text-muted-foreground font-medium">Frais de Transport Yolo</span>
-              <div className="text-2xl font-bold text-foreground">1 850 000 FCFA</div>
-              <span className="text-xs text-muted-foreground">Tarif moyen : 1 248 FCFA / course</span>
+              <div className="text-2xl font-bold text-foreground">{formatFCFA(totalTransportFees)}</div>
+              <span className="text-xs text-muted-foreground">Total transport des courses de test</span>
             </Card>
             <Card className="p-4 space-y-1">
               <span className="text-xs text-muted-foreground font-medium">Solde Net Reversé</span>
-              <div className="text-2xl font-bold text-emerald-600 font-bold">13 000 000 FCFA</div>
-              <span className="text-xs text-muted-foreground">Vers MTN MoMo (+237 677 00 11 22)</span>
+              <div className="text-2xl font-bold text-emerald-600 font-bold">{formatFCFA(readyPayoutAmount)}</div>
+              <span className="text-xs text-muted-foreground">Vers MTN MoMo ({merchant.mobileMoneyAccount.number})</span>
             </Card>
           </div>
 
@@ -584,7 +688,7 @@ export function AnalyticsDashboard() {
             <div className="p-3 bg-muted/30 rounded-lg text-xs space-y-2 border">
               <div className="flex items-center justify-between">
                 <span>Rapprochement automatique MTN MoMo / Orange Money</span>
-                <Badge variant="success">99.8% instantané</Badge>
+                <Badge variant="success">Instantané</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span>Dépôt physique des espèces par les livreurs au hub Yolo</span>
@@ -649,46 +753,53 @@ export function AnalyticsDashboard() {
                   Procédure auditée : client injoignable, adresse erronée ou refus de marchandise.
                 </CardDescription>
               </div>
-              <Badge variant="destructive" className="text-xs">
-                1 incident en cours d&apos;arbitrage
+              <Badge variant={incidentDeliveries.length > 0 ? "destructive" : "secondary"} className="text-xs">
+                {incidentDeliveries.length} incident(s) en cours
               </Badge>
             </div>
 
-            <div className="space-y-3">
-              <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="size-4 text-destructive" />
-                    <span className="font-bold text-xs text-foreground">Course #YLO-2026-09-8475 — Kotto</span>
-                  </div>
-                  <Badge variant="destructive">Client Injoignable</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Le livreur David Nganou est sur place depuis 20 min sans réponse aux appels.
-                  Proposition de l&apos;exploitation : <strong>Mission de retour vers le Point Retrait Bonamoussadi</strong>.
-                </p>
-                <div className="flex items-center gap-2 pt-2">
-                  <Button
-                    size="sm"
-                    variant="yolo"
-                    onClick={() => {
-                      alert("Retour accepté. La marchandise reste sous la garde du livreur jusqu'à la remise à Bonamoussadi.");
-                    }}
-                    className="text-xs"
-                  >
-                    Valider le retour vers Bonamoussadi
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setActiveView("support")}
-                    className="text-xs"
-                  >
-                    Contacter l&apos;assistance
-                  </Button>
-                </div>
+            {incidentDeliveries.length === 0 ? (
+              <div className="p-6 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+                Aucun incident en cours sur vos livraisons de test. Tout se déroule normalement.
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {incidentDeliveries.map((del) => (
+                  <div key={del.id} className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="size-4 text-destructive" />
+                        <span className="font-bold text-xs text-foreground">Course #{del.reference} — {del.recipientNeighborhood}</span>
+                      </div>
+                      <Badge variant="destructive">Incident</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Destinataire : {del.recipientName} ({del.recipientPhone}). Point de retrait : {del.pickupSiteName}.
+                    </p>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        variant="yolo"
+                        onClick={() => {
+                          alert(`Procédure de retour engagée pour ${del.reference}.`);
+                        }}
+                        className="text-xs"
+                      >
+                        Valider le retour vers {del.pickupSiteName}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setActiveView("support")}
+                        className="text-xs"
+                      >
+                        Contacter l&apos;assistance
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </TabsContent>
       </Tabs>

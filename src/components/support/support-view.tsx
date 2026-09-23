@@ -1,15 +1,10 @@
 import React from "react";
 import {
-  HelpCircle,
   Phone,
   MessageSquare,
-  AlertTriangle,
-  Clock,
-  CheckCircle2,
-  ExternalLink,
   Plus,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MOCK_SUPPORT_TICKETS } from "@/lib/mock-data";
@@ -28,7 +23,7 @@ export function SupportView() {
         </div>
 
         <Button
-          onClick={() => alert("Formulaire d'ouverture de ticket ouvert")}
+          onClick={() => alert("Formulaire d'ouverture de ticket")}
           className="bg-yolo-ink text-yolo-lime hover:bg-yolo-ink/90 border border-yolo-lime/40 font-semibold gap-2 self-start sm:self-auto text-xs"
         >
           <Plus className="size-4" />
@@ -63,32 +58,38 @@ export function SupportView() {
         <CardTitle className="text-sm font-bold">Vos Demandes & Litiges Récents</CardTitle>
 
         <div className="space-y-3">
-          {MOCK_SUPPORT_TICKETS.map((tck) => (
-            <div
-              key={tck.id}
-              className="p-3.5 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors space-y-1.5"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant={tck.priority === "urgent" ? "destructive" : "secondary"} className="text-[10px]">
-                    {tck.priority}
-                  </Badge>
-                  <span className="font-bold text-xs text-foreground">{tck.subject}</span>
-                </div>
-                <Badge variant={tck.status === "resolved" ? "success" : "warning"} className="text-[10px]">
-                  {tck.status === "resolved" ? "Résolu" : "En cours"}
-                </Badge>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-                <span>Créé le {tck.createdAt} • Dernier message {tck.updatedAt}</span>
-                <span className="flex items-center gap-1 font-medium">
-                  <MessageSquare className="size-3" />
-                  {tck.messagesCount} réponses
-                </span>
-              </div>
+          {MOCK_SUPPORT_TICKETS.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-lg">
+              Aucun litige ni ticket en cours. Cliquez sur &quot;Ouvrir un ticket&quot; si vous avez besoin d&apos;assistance.
             </div>
-          ))}
+          ) : (
+            MOCK_SUPPORT_TICKETS.map((tck) => (
+              <div
+                key={tck.id}
+                className="p-3.5 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors space-y-1.5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={tck.priority === "urgent" ? "destructive" : "secondary"} className="text-[10px]">
+                      {tck.priority}
+                    </Badge>
+                    <span className="font-bold text-xs text-foreground">{tck.subject}</span>
+                  </div>
+                  <Badge variant={tck.status === "resolved" ? "success" : "warning"} className="text-[10px]">
+                    {tck.status === "resolved" ? "Résolu" : "En cours"}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
+                  <span>Créé le {tck.createdAt} • Dernier message {tck.updatedAt}</span>
+                  <span className="flex items-center gap-1 font-medium">
+                    <MessageSquare className="size-3" />
+                    {tck.messagesCount} réponses
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </Card>
     </div>

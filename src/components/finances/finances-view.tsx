@@ -2,30 +2,75 @@ import React, { useState } from "react";
 import {
   Wallet,
   ArrowUpRight,
-  ArrowDownRight,
   Coins,
   FileText,
   FileDown,
-  CheckCircle2,
   Clock,
   Download,
-  Filter,
   ShieldCheck,
   Building2,
   Smartphone,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { MOCK_FINANCE_MOVEMENTS, MOCK_INVOICES, MOCK_PAYOUTS } from "@/lib/mock-data";
 import { formatFCFA } from "@/lib/utils";
 import { useStore } from "@/context/store-context";
+import { useDeliveries } from "@/context/delivery-context";
+import { FinanceMovement, Invoice, Payout } from "@/lib/types";
 
 export function FinancesView() {
   const { merchant } = useStore();
+  const { deliveries } = useDeliveries();
   const [activeTab, setActiveTab] = useState("movements");
+
+  // Dynamic calculations from test deliveries
+  const codDeliveries = deliveries.filter((d) => d.paymentMode === "cash_on_delivery");
+  const totalCod = codDeliveries.reduce((sum, d) => sum + (d.totalToCollect || d.goodsAmount), 0);
+  const totalTransport = deliveries.reduce((sum, d) => sum + d.transportFee, 0);
+  const netAvailable = Math.max(0, totalCod - totalTransport);
+
+  // Dynamic movements generated from test deliveries
+  const dynamicMovements: FinanceMovement[] = [];
+  deliveries.forEach((d) => {
+    if (d.paymentMode === "cash_on_delivery") {
+      dynamicMovements.push({
+        id: `mov_cod_${d.id}`,
+        date: d.createdAt
+          ? new Date(d.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+          : "Aujourd'hui",
+        reference: `MOV-COD-${d.reference.slice(-4)}`,
+        deliveryReference: d.reference,
+        type: "cod_collection",
+        typeLabel: "Collecte Marchandise (COD)",
+        amount: d.goodsAmount,
+        isCredit: true,
+        channel: "MTN MoMo",
+        status: d.status === "delivered" ? "effectué" : "en_cours",
+        description: `Encaissement destinataire : ${d.recipientName} (${d.recipientNeighborhood})`,
+      });
+    }
+    dynamicMovements.push({
+      id: `mov_tf_${d.id}`,
+      date: d.createdAt
+        ? new Date(d.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+        : "Aujourd'hui",
+      reference: `MOV-TF-${d.reference.slice(-4)}`,
+      deliveryReference: d.reference,
+      type: "transport_fee_debit",
+      typeLabel: "Frais de transport course",
+      amount: d.transportFee,
+      isCredit: false,
+      channel: "Compte Yolo",
+      status: "effectué",
+      description: `Transport ${d.pickupNeighborhood} ➔ ${d.recipientNeighborhood}`,
+    });
+  });
+
+  const payouts: Payout[] = [];
+  const invoices: Invoice[] = [];
 
   return (
     <div className="space-y-6 pb-12">
@@ -66,7 +111,7 @@ export function FinancesView() {
             </div>
           </div>
           <div className="text-2xl font-black text-emerald-600 font-mono">
-            13 000 000 FCFA
+            {formatFCFA(netAvailable)}
           </div>
           <div className="text-[11px] text-muted-foreground">
             Vers MTN MoMo : <strong>{merchant.mobileMoneyAccount.number}</strong>
@@ -81,11 +126,11 @@ export function FinancesView() {
             </div>
           </div>
           <div className="text-2xl font-bold text-foreground font-mono">
-            14 850 000 FCFA
+            {formatFCFA(totalCod)}
           </div>
           <div className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
             <ArrowUpRight className="size-3" />
-            100% rapproché en direct
+            {codDeliveries.length} course(s) COD
           </div>
         </Card>
 
@@ -97,10 +142,10 @@ export function FinancesView() {
             </div>
           </div>
           <div className="text-2xl font-bold text-foreground font-mono">
-            1 850 000 FCFA
+            {formatFCFA(totalTransport)}
           </div>
           <div className="text-[11px] text-muted-foreground">
-            1 482 courses exécutées ce mois
+            {deliveries.length} course(s) enregistrée(s)
           </div>
         </Card>
 
@@ -112,10 +157,10 @@ export function FinancesView() {
             </div>
           </div>
           <div className="text-2xl font-bold text-foreground font-mono">
-            169 750 FCFA
+            {formatFCFA(netAvailable)}
           </div>
           <div className="text-[11px] text-amber-600 font-semibold">
-            Virement programmé à 18h00
+            Rapprochement à la remise
           </div>
         </Card>
       </div>
@@ -124,9 +169,9 @@ export function FinancesView() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="overflow-x-auto no-scrollbar pb-1">
           <TabsList className="bg-muted/50 p-1 inline-flex w-auto min-w-max">
-            <TabsTrigger value="movements">Grand Livre des Écritures (F02)</TabsTrigger>
-            <TabsTrigger value="payouts">Historique des Reversements (F04)</TabsTrigger>
-            <TabsTrigger value="invoices">Factures de Transport (F03)</TabsTrigger>
+            <TabsTrigger value="movements">Grand Livre des Écritures ({dynamicMovements.length})</TabsTrigger>
+            <TabsTrigger value="payouts">Historique des Reversements ({payouts.length})</TabsTrigger>
+            <TabsTrigger value="invoices">Factures de Transport ({invoices.length})</TabsTrigger>
           </TabsList>
         </div>
 
@@ -146,57 +191,66 @@ export function FinancesView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MOCK_FINANCE_MOVEMENTS.map((mov) => (
-                  <TableRow key={mov.id} className="hover:bg-muted/30">
-                    <TableCell>
-                      <div className="font-mono text-xs font-semibold text-foreground">{mov.reference}</div>
-                      <div className="text-[10px] text-muted-foreground">{mov.date}</div>
-                    </TableCell>
-
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px]">
-                        {mov.typeLabel}
-                      </Badge>
-                    </TableCell>
-
-                    <TableCell>
-                      {mov.deliveryReference ? (
-                        <span className="font-mono text-xs text-foreground font-semibold">
-                          {mov.deliveryReference}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">—</span>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
-                        {mov.channel.includes("MoMo") || mov.channel.includes("Orange") ? (
-                          <Smartphone className="size-3 text-yolo-ink dark:text-yolo-lime" />
-                        ) : (
-                          <Building2 className="size-3" />
-                        )}
-                        {mov.channel}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
-                      {mov.description}
-                    </TableCell>
-
-                    <TableCell className="text-right font-mono font-bold text-xs">
-                      <span className={mov.isCredit ? "text-emerald-600" : "text-foreground"}>
-                        {mov.isCredit ? "+" : "-"} {formatFCFA(mov.amount)}
-                      </span>
-                    </TableCell>
-
-                    <TableCell className="text-right">
-                      <Badge variant="success" className="text-[10px]">
-                        {mov.status}
-                      </Badge>
+                {dynamicMovements.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs">
+                      Aucun mouvement financier enregistré pour le moment.
+                      Les écritures se créeront automatiquement au fil de vos livraisons de test.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  dynamicMovements.map((mov) => (
+                    <TableRow key={mov.id} className="hover:bg-muted/30">
+                      <TableCell>
+                        <div className="font-mono text-xs font-semibold text-foreground">{mov.reference}</div>
+                        <div className="text-[10px] text-muted-foreground">{mov.date}</div>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant="outline" className="text-[10px]">
+                          {mov.typeLabel}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell>
+                        {mov.deliveryReference ? (
+                          <span className="font-mono text-xs text-foreground font-semibold">
+                            {mov.deliveryReference}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                          {mov.channel.includes("MoMo") || mov.channel.includes("Orange") ? (
+                            <Smartphone className="size-3 text-yolo-ink dark:text-yolo-lime" />
+                          ) : (
+                            <Building2 className="size-3" />
+                          )}
+                          {mov.channel}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="text-xs text-muted-foreground max-w-xs truncate">
+                        {mov.description}
+                      </TableCell>
+
+                      <TableCell className="text-right font-mono font-bold text-xs">
+                        <span className={mov.isCredit ? "text-emerald-600" : "text-foreground"}>
+                          {mov.isCredit ? "+" : "-"} {formatFCFA(mov.amount)}
+                        </span>
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <Badge variant="success" className="text-[10px]">
+                          {mov.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
@@ -218,32 +272,40 @@ export function FinancesView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MOCK_PAYOUTS.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="font-mono text-xs font-bold text-foreground">{p.reference}</div>
-                      <div className="text-[10px] font-mono text-muted-foreground">{p.traceId}</div>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium text-foreground">{p.period}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-mono">
-                      {p.method} • {p.accountNumber}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-foreground">
-                      {formatFCFA(p.grossCodAmount)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {formatFCFA(p.deductedFees)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold text-sm text-emerald-600">
-                      {formatFCFA(p.netPayoutAmount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant={p.status === "virement_effectué" ? "success" : "warning"}>
-                        {p.status.replace("_", " ")}
-                      </Badge>
+                {payouts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs">
+                      Aucun reversement généré pour le moment.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  payouts.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <div className="font-mono text-xs font-bold text-foreground">{p.reference}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground">{p.traceId}</div>
+                      </TableCell>
+                      <TableCell className="text-xs font-medium text-foreground">{p.period}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-mono">
+                        {p.method} • {p.accountNumber}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-foreground">
+                        {formatFCFA(p.grossCodAmount)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {formatFCFA(p.deductedFees)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-sm text-emerald-600">
+                        {formatFCFA(p.netPayoutAmount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant={p.status === "virement_effectué" ? "success" : "warning"}>
+                          {p.status.replace("_", " ")}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
@@ -266,40 +328,48 @@ export function FinancesView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MOCK_INVOICES.map((inv) => (
-                  <TableRow key={inv.id}>
-                    <TableCell className="font-mono font-bold text-xs text-foreground">
-                      {inv.number}
-                    </TableCell>
-                    <TableCell className="text-xs font-medium text-foreground">{inv.period}</TableCell>
-                    <TableCell className="text-right font-mono text-xs text-foreground">
-                      {inv.totalDeliveries}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-foreground">
-                      {formatFCFA(inv.totalTransportFees)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {formatFCFA(inv.taxAmount)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-bold text-xs text-foreground">
-                      {formatFCFA(inv.netPayable)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="success">{inv.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => alert(`Téléchargement de la facture ${inv.number} en PDF`)}
-                        className="gap-1 text-[11px] h-7 px-2"
-                      >
-                        <Download className="size-3" />
-                        PDF
-                      </Button>
+                {invoices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground text-xs">
+                      Aucune facture de transport émise pour le moment.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  invoices.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono font-bold text-xs text-foreground">
+                        {inv.number}
+                      </TableCell>
+                      <TableCell className="text-xs font-medium text-foreground">{inv.period}</TableCell>
+                      <TableCell className="text-right font-mono text-xs text-foreground">
+                        {inv.totalDeliveries}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-foreground">
+                        {formatFCFA(inv.totalTransportFees)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {formatFCFA(inv.taxAmount)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold text-xs text-foreground">
+                        {formatFCFA(inv.netPayable)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="success">{inv.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => alert(`Téléchargement de la facture ${inv.number} en PDF`)}
+                          className="gap-1 text-[11px] h-7 px-2"
+                        >
+                          <Download className="size-3" />
+                          PDF
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
