@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { Delivery, DeliveryStatus, DeliveryTimelineEvent } from "@/lib/types";
 import { MOCK_DELIVERIES } from "@/lib/mock-data";
 
@@ -35,16 +35,41 @@ interface DeliveryContextType {
   viewDeliveryDetail: (deliveryId: string) => void;
   openPublicTracking: (trackingToken: string) => void;
   activeTrackingToken: string | null;
+  resetAllDeliveries: () => void;
 }
 
 const DeliveryContext = createContext<DeliveryContextType | undefined>(undefined);
 
+const STORAGE_KEY = "yolo_business_test_deliveries";
+
+function loadSavedDeliveries(): Delivery[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {
+    // Ignore storage parse errors
+  }
+  return MOCK_DELIVERIES; // Default is []
+}
+
 export function DeliveryProvider({ children }: { children: React.ReactNode }) {
-  const [deliveries, setDeliveries] = useState<Delivery[]>(MOCK_DELIVERIES);
+  const [deliveries, setDeliveries] = useState<Delivery[]>(loadSavedDeliveries);
   const [activeView, setActiveView] = useState<ActiveNavView>("dashboard");
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(null);
   const [handoverDeliveryId, setHandoverDeliveryId] = useState<string | null>(null);
   const [activeTrackingToken, setActiveTrackingToken] = useState<string | null>(null);
+
+  // Sync state changes with localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(deliveries));
+    } catch {
+      // Ignore quota errors
+    }
+  }, [deliveries]);
 
   const selectedDelivery = deliveries.find((d) => d.id === selectedDeliveryId);
   const handoverDelivery = deliveries.find((d) => d.id === handoverDeliveryId);
@@ -100,7 +125,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
           timestamp: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
           status: "searching_courier",
           title: "Recherche de livreur lancée",
-          description: "Recherche de coursiers compatibles à proximité via PostGIS.",
+          description: "Recherche de coursiers compatibles à proximité via PostGIS (rayon 20 km).",
           actor: "system",
         },
       ],
@@ -185,6 +210,17 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const resetAllDeliveries = () => {
+    setDeliveries([]);
+    setSelectedDeliveryId(null);
+    setHandoverDeliveryId(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
+  };
+
   const viewDeliveryDetail = (deliveryId: string) => {
     setSelectedDeliveryId(deliveryId);
     setActiveView("delivery_detail");
@@ -214,6 +250,7 @@ export function DeliveryProvider({ children }: { children: React.ReactNode }) {
         viewDeliveryDetail,
         openPublicTracking,
         activeTrackingToken,
+        resetAllDeliveries,
       }}
     >
       {children}
