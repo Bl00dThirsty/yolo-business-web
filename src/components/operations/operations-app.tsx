@@ -111,7 +111,7 @@ export default function OperationsApp() {
     pin: string;
     expires_at: string;
   } | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(Date.now);
   const [hasPending, setHasPending] = useState(false);
   const userId = session?.user.id;
   const pending = useRef<{

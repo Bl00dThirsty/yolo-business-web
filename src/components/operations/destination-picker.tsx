@@ -102,7 +102,7 @@ export function DestinationPicker({
   return (
     <fieldset className="flex flex-col gap-3 min-w-0">
       <legend className="text-sm font-semibold mb-2">
-        Point exact de livraison
+        Position exacte
       </legend>
       <label htmlFor={id} className="text-xs text-muted-foreground">
         Commencez par le quartier ou la ville
@@ -242,8 +242,8 @@ export function DestinationPicker({
       >
         <Check data-icon="inline-start" />
         {value?.confirmed
-          ? "Point de livraison confirmé"
-          : "Confirmer ce point de livraison"}
+          ? "Position confirmée"
+          : "Confirmer cette position"}
       </Button>
     </fieldset>
   );
