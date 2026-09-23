@@ -31,3 +31,9 @@ dist-ssr
 
 .vercel
 .env*
+
+.local-vercel-files.json
+.vercel-preview-files.json
+
+
+!.env.example
