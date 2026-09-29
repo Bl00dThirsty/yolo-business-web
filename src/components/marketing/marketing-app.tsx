@@ -13,6 +13,7 @@ import {
   city,
 } from "./content";
 import "./marketing.css";
+import { SEO_PAGES_META, updatePageSEO } from "@/lib/seo";
 gsap.registerPlugin(ScrollTrigger);
 const navLinks = [
   ["La solution", "/solution"],
@@ -50,8 +51,34 @@ const footerLinks = [
     ],
   },
 ];
-function Arrow() {
-  return <span aria-hidden="true">↗</span>;
+function Arrow({
+  direction = "up-right",
+}: {
+  direction?: "up-right" | "right" | "left" | "down";
+}) {
+  const paths = {
+    "up-right": "M7 17 17 7M7 7h10v10",
+    right: "M5 12h14m-6-6 6 6-6 6",
+    left: "M19 12H5m6-6-6 6 6 6",
+    down: "M12 5v14m-6-6 6 6 6-6",
+  };
+  return (
+    <svg
+      className="m-arrow"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={paths[direction]} />
+    </svg>
+  );
 }
 function CTA({
   href = "/demo",
@@ -203,7 +230,7 @@ function Contact() {
               download="demande-yolo-business.txt"
               href={`data:text/plain;charset=utf-8,${encodeURIComponent(draft)}`}
             >
-              Télécharger mon récapitulatif ↓
+              Télécharger mon récapitulatif <Arrow direction="down" />
             </a>
           </div>
         )}
@@ -232,7 +259,7 @@ function Home() {
           <div className="m-actions">
             <CTA />
             <a className="m-text-link" href="/fonctionnement">
-              Comment ça marche <span aria-hidden="true">→</span>
+              Comment ça marche <Arrow direction="right" />
             </a>
           </div>
           <div className="m-hero-foot">
@@ -359,7 +386,7 @@ function Home() {
             ))}
           </div>
           <div className="m-dashboard-bottom">
-            Chaque colis, une étape de plus. <span>↗</span>
+            Chaque colis, une étape de plus. <Arrow />
           </div>
         </div>
       </section>
@@ -435,7 +462,7 @@ function PageContent({ path }: { path: string }) {
     return (
       <article className="m-article m-container">
         <a className="m-text-link" href="/ressources">
-          ← Tous les guides
+          <Arrow direction="left" /> Tous les guides
         </a>
         <span className="m-eyebrow">{article.category}</span>
         <h1>{article.title}</h1>
@@ -526,11 +553,29 @@ export default function MarketingApp() {
   const [menu, setMenu] = useState(false);
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   useEffect(() => {
-    const old = document.title;
-    document.title =
-      path === "/"
-        ? "Yolo Business — Vous faites du business. Nous livrons."
-        : `${pages[path]?.title || { "/contact": "Contact", "/ressources": "Guides pratiques", "/fonctionnement": "Comment ça marche", "/faq": "Questions fréquentes" }[path] || articles.find((a) => path.endsWith(a.slug))?.title || "Page introuvable"} · Yolo Business`;
+    const article = articles.find((a) => path === `/ressources/${a.slug}`);
+    if (article) {
+      updatePageSEO(
+        {
+          title: `${article.title} — Guide Yolo Business`,
+          description:
+            article.paragraphs[0] ||
+            "Guide pratique de livraison pour commerçants.",
+          ogType: "article",
+          image: article.image,
+        },
+        path,
+      );
+    } else {
+      const meta = SEO_PAGES_META[path] || {
+        title: `${pages[path]?.title || "Page"} · Yolo Business`,
+        description:
+          pages[path]?.intro ||
+          "Yolo Business, plateforme de livraison express pour commerces au Cameroun.",
+      };
+      updatePageSEO(meta, path);
+    }
+
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.utils
@@ -547,7 +592,6 @@ export default function MarketingApp() {
     });
     return () => {
       mm.revert();
-      document.title = old;
     };
   }, [path]);
   useEffect(() => {
@@ -659,7 +703,9 @@ export default function MarketingApp() {
               <a href="/conditions">Conditions</a>
               <a href="/cookies">Cookies</a>
             </div>
-            <span>Fait pour aller plus loin. ↗</span>
+            <span>
+              Fait pour aller plus loin. <Arrow />
+            </span>
           </div>
         </div>
       </footer>
