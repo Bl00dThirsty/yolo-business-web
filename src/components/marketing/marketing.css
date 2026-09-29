@@ -1,3 +1,10 @@
+@font-face {
+  font-family: "Oswald";
+  src: url("../../assets/fonts/Oswald-Bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
 .marketing {
   --m-ink: #191414;
   --m-green: #1db954;
@@ -1291,4 +1298,23 @@
   .m-vertical-label {
     display: none;
   }
+}
+
+/* Display titles use the supplied Oswald Bold font, hosted locally. */
+.marketing h1,
+.marketing h2 {
+  font-family: "Oswald", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.marketing .m-arrow {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  width: 1.15em;
+  height: 1.15em;
+}
+.marketing .m-button .m-arrow {
+  width: 20px;
+  height: 20px;
 }
