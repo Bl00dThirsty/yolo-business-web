@@ -53,7 +53,7 @@ function DemoApp() {
               <span>
                 <strong>Espace de Test Nettoyé</strong> — Données fictives supprimées. Les livraisons créées sont enregistrées localement dans votre navigateur.
               </span>
-              <a href="/" className="text-xs font-semibold underline text-primary shrink-0">
+              <a href="/connexion" className="text-xs font-semibold underline text-primary shrink-0">
                 Ouvrir l’espace connecté Supabase (Mobile live) →
               </a>
             </div>
