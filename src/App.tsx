@@ -3,13 +3,19 @@ const OperationsApp = lazy(
   () => import("@/components/operations/operations-app"),
 );
 const DemoApp = lazy(() => import("./DemoApp"));
+const MarketingApp = lazy(() => import("./components/marketing/marketing-app"));
 export default function App() {
+  const path = window.location.pathname;
   return (
     <Suspense fallback={<p className="p-8">Chargement de votre espace…</p>}>
-      {window.location.pathname.startsWith("/demo") ? (
+      {path.startsWith("/demo") ? (
         <DemoApp />
-      ) : (
+      ) : path === "/connexion" ||
+        path === "/app" ||
+        path.startsWith("/suivi") ? (
         <OperationsApp />
+      ) : (
+        <MarketingApp />
       )}
     </Suspense>
   );

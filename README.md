@@ -4,7 +4,8 @@ Interface Vite, React et TypeScript pour les points de retrait Yolo.
 
 ## Parcours disponibles
 
-- `/` : connexion Supabase, accès aux points de retrait autorisés, création d'une demande avec une destination par colis, point exact sur carte, suivi et double validation du retrait.
+- `/` : accueil public de Yolo Business.
+- `/connexion` (alias `/app`) : espace connecté existant.
 - `/demo` : prototype existant avec données fictives, finances et autres parcours simulés. Aucune mutation réelle depuis cette démonstration.
 
 Copier `.env.example` vers `.env.local` et renseigner l'URL Supabase et sa clé publique. Aucune clé de service dans le navigateur.
@@ -21,3 +22,11 @@ Cet espace connecté est destiné aux opérateurs habilités : devis commerciaux
 
 Vercel utilise `vercel.json`. Renseigner les deux variables publiques Supabase dans l'environnement de build. `.vercelignore` exclut secrets, caches et sorties locales.
 Les branches sont publiées en aperçu ; la production doit provenir d'un tag annoté sur `main` après PR et recette, selon [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Site de présentation
+
+Les pages publiques sont dans `src/components/marketing`. Les contenus sont regroupés dans `content.ts` et les animations GSAP respectent la préférence de mouvement réduit. Le header et le footer pointent vers des pages dédiées ; les trois guides et la FAQ sont consultables.
+
+Le formulaire `/contact` valide les champs et prépare un fichier texte à télécharger, sans envoi externe. Les coordonnées officielles, les tarifs et les textes légaux restent à compléter. Les chiffres de l’aperçu sont fictifs.
+
+Les cinq originaux restent dans `src/assets`. `npm run images:marketing` régénère leurs versions WebP dans `src/assets/optimized`.
