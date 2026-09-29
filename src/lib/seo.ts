@@ -1,4 +1,4 @@
-export const SITE_URL = "https://yolo-business-web.vercel.app";
+export const SITE_URL = "https://business.yolo-hub.com";
 export const SITE_NAME = "Yolo Business";
 export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
 

@@ -1,5 +1,5 @@
 # robots.txt for Yolo Business
-# https://yolo-business-web.vercel.app
+# https://business.yolo-hub.com
 
 User-agent: *
 Allow: /
@@ -10,4 +10,4 @@ Disallow: /connexion
 Disallow: /suivi/
 
 # Sitemap location
-Sitemap: https://yolo-business-web.vercel.app/sitemap.xml
+Sitemap: https://business.yolo-hub.com/sitemap.xml

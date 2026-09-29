@@ -6,7 +6,7 @@
 
   <!-- Page d'accueil principale -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/</loc>
+    <loc>https://business.yolo-hub.com/</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -14,21 +14,21 @@
 
   <!-- Pages de présentation solution et cible -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/solution</loc>
+    <loc>https://business.yolo-hub.com/solution</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/entreprises</loc>
+    <loc>https://business.yolo-hub.com/entreprises</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/fonctionnement</loc>
+    <loc>https://business.yolo-hub.com/fonctionnement</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -36,14 +36,14 @@
 
   <!-- Tarifs et Couverture géographique -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/tarifs</loc>
+    <loc>https://business.yolo-hub.com/tarifs</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/zones</loc>
+    <loc>https://business.yolo-hub.com/zones</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -51,14 +51,14 @@
 
   <!-- FAQ et Démo -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/faq</loc>
+    <loc>https://business.yolo-hub.com/faq</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/demo</loc>
+    <loc>https://business.yolo-hub.com/demo</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -66,28 +66,28 @@
 
   <!-- Ressources et Guides pratiques (SEO de contenu) -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/ressources</loc>
+    <loc>https://business.yolo-hub.com/ressources</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/ressources/preparer-un-colis</loc>
+    <loc>https://business.yolo-hub.com/ressources/preparer-un-colis</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/ressources/livrer-a-yaounde</loc>
+    <loc>https://business.yolo-hub.com/ressources/livrer-a-yaounde</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/ressources/organiser-ses-expeditions</loc>
+    <loc>https://business.yolo-hub.com/ressources/organiser-ses-expeditions</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -95,21 +95,21 @@
 
   <!-- Pages institutionnelles et Contact -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/a-propos</loc>
+    <loc>https://business.yolo-hub.com/a-propos</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/partenaires</loc>
+    <loc>https://business.yolo-hub.com/partenaires</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/contact</loc>
+    <loc>https://business.yolo-hub.com/contact</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -117,14 +117,14 @@
 
   <!-- Légal et Confidentialité -->
   <url>
-    <loc>https://yolo-business-web.vercel.app/mentions-legales</loc>
+    <loc>https://business.yolo-hub.com/mentions-legales</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
   <url>
-    <loc>https://yolo-business-web.vercel.app/confidentialite</loc>
+    <loc>https://business.yolo-hub.com/confidentialite</loc>
     <lastmod>2026-09-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
