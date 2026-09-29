@@ -13,6 +13,7 @@ import {
   city,
 } from "./content";
 import "./marketing.css";
+import { SEO_PAGES_META, updatePageSEO } from "@/lib/seo";
 gsap.registerPlugin(ScrollTrigger);
 const navLinks = [
   ["La solution", "/solution"],
@@ -552,11 +553,29 @@ export default function MarketingApp() {
   const [menu, setMenu] = useState(false);
   const path = window.location.pathname.replace(/\/$/, "") || "/";
   useEffect(() => {
-    const old = document.title;
-    document.title =
-      path === "/"
-        ? "Yolo Business — Vous faites du business. Nous livrons."
-        : `${pages[path]?.title || { "/contact": "Contact", "/ressources": "Guides pratiques", "/fonctionnement": "Comment ça marche", "/faq": "Questions fréquentes" }[path] || articles.find((a) => path.endsWith(a.slug))?.title || "Page introuvable"} · Yolo Business`;
+    const article = articles.find((a) => path === `/ressources/${a.slug}`);
+    if (article) {
+      updatePageSEO(
+        {
+          title: `${article.title} — Guide Yolo Business`,
+          description:
+            article.paragraphs[0] ||
+            "Guide pratique de livraison pour commerçants.",
+          ogType: "article",
+          image: article.image,
+        },
+        path,
+      );
+    } else {
+      const meta = SEO_PAGES_META[path] || {
+        title: `${pages[path]?.title || "Page"} · Yolo Business`,
+        description:
+          pages[path]?.intro ||
+          "Yolo Business, plateforme de livraison express pour commerces au Cameroun.",
+      };
+      updatePageSEO(meta, path);
+    }
+
     const mm = gsap.matchMedia();
     mm.add("(prefers-reduced-motion: no-preference)", () => {
       gsap.utils
@@ -573,7 +592,6 @@ export default function MarketingApp() {
     });
     return () => {
       mm.revert();
-      document.title = old;
     };
   }, [path]);
   useEffect(() => {

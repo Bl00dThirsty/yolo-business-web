@@ -2,14 +2,144 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo-yolo-black.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Yolo Business — Vous faites du business. Nous livrons.</title>
-    <meta name="description" content="Découvrez Yolo Business, un espace simple pour organiser les livraisons de votre commerce à Yaoundé. Présentation, guides et démonstration." />
-    <meta name="theme-color" content="#fafbf6" />
+    
+    <!-- Titre et description SEO optimisés Google -->
+    <title>Yolo Business — Solution de Livraison Express pour Commerces au Cameroun</title>
+    <meta name="description" content="Organisez vos livraisons locales avec Yolo Business. Prise en charge rapide à Yaoundé & Douala, suivi en temps réel et remise sécurisée par code pour vos clients." />
+    <meta name="keywords" content="livraison express Cameroun, livraison Yaoundé, livraison Douala, livraison e-commerce Cameroun, logistique dernier kilomètre, coursier entreprise Cameroun, Yolo Business, Yolo Delivery" />
+    <meta name="author" content="Yolo Delivery" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    
+    <!-- URL Canonique -->
+    <link rel="canonical" href="https://yolo-business-web.vercel.app/" />
+
+    <!-- Open Graph / Facebook / WhatsApp / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Yolo Business" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:url" content="https://yolo-business-web.vercel.app/" />
+    <meta property="og:title" content="Yolo Business — Vous faites du business. Nous livrons." />
+    <meta property="og:description" content="Plateforme de livraison express pour les commerces et e-commerces au Cameroun (Yaoundé & Douala). Organisez vos envois et gagnez du temps." />
+    <meta property="og:image" content="https://yolo-business-web.vercel.app/og-image.png" />
+    <meta property="og:image:alt" content="Yolo Business — Plateforme de livraison au Cameroun" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Yolo Business — Vous faites du business. Nous livrons." />
+    <meta name="twitter:description" content="Plateforme de livraison express pour commerces et e-commerce au Cameroun (Yaoundé & Douala)." />
+    <meta name="twitter:image" content="https://yolo-business-web.vercel.app/og-image.png" />
+
+    <!-- Ciblage Géographique (SEO Local Google) -->
+    <meta name="geo.region" content="CM" />
+    <meta name="geo.placename" content="Yaoundé, Cameroun" />
+    <meta name="geo.position" content="3.8480;11.5021" />
+    <meta name="ICBM" content="3.8480, 11.5021" />
+
+    <!-- Intégration Navigateur & PWA -->
+    <meta name="theme-color" content="#121317" />
+    <link rel="icon" type="image/png" href="/logo-yolo-black.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/logo-yolo-black.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="search" type="application/opensearchdescription+xml" title="Yolo Business" href="/opensearch.xml" />
+
+    <!-- Polices & Préconnexions -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Données structurées Schema.org (JSON-LD pour Google Search Rich Snippets) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "DeliveryService",
+          "@id": "https://yolo-business-web.vercel.app/#service",
+          "name": "Yolo Business",
+          "legalName": "Yolo Delivery",
+          "url": "https://yolo-business-web.vercel.app/",
+          "logo": "https://yolo-business-web.vercel.app/logo-yolo-black.png",
+          "image": "https://yolo-business-web.vercel.app/og-image.png",
+          "description": "Service de livraison express et logistique urbaine pour commerces et e-commerce au Cameroun (Yaoundé & Douala).",
+          "areaServed": [
+            {
+              "@type": "City",
+              "name": "Yaoundé",
+              "addressCountry": "CM"
+            },
+            {
+              "@type": "City",
+              "name": "Douala",
+              "addressCountry": "CM"
+            }
+          ],
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Yaoundé",
+            "addressCountry": "CM"
+          },
+          "serviceType": "Livraison express du dernier kilomètre pour commerces",
+          "availableChannel": {
+            "@type": "ServiceChannel",
+            "serviceUrl": "https://yolo-business-web.vercel.app/"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://yolo-business-web.vercel.app/#website",
+          "name": "Yolo Business",
+          "url": "https://yolo-business-web.vercel.app/",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://yolo-business-web.vercel.app/ressources?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://yolo-business-web.vercel.app/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Comment commencer avec Yolo Business ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Découvrez l’espace de démonstration, puis préparez votre demande de prise de contact. L’équipe Yolo vous accompagne pour définir vos points de collecte et activer votre accès."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Dans quelles zones livrez-vous ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Le lancement est pensé pour Yaoundé (Bastos, Omnisports, Essos, Mvan, Biyem-Assi...). La prise en charge dépend du quartier de départ, de la destination et de la disponibilité des livreurs."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Comment savoir si mon colis est arrivé ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Le parcours cible prévoit un code envoyé au destinataire sur WhatsApp. Celui-ci le communique au livreur au moment de recevoir son colis."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Puis-je essayer la plateforme ?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Oui. L’espace de démonstration permet d’explorer l’interface sans déclencher de livraison réelle."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

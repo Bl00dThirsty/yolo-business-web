@@ -1,0 +1,23 @@
+{
+  "name": "Yolo Business — Plateforme de Livraison",
+  "short_name": "Yolo Business",
+  "description": "Plateforme de livraison express pour commerces et e-commerce au Cameroun (Yaoundé & Douala).",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafbf6",
+  "theme_color": "#121317",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-yolo-black.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
