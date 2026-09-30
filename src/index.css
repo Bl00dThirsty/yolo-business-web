@@ -109,3 +109,9 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.4);
 }
+
+/* Indeterminate progress: no invented percentage while route chunks load. */
+.app-loading { position:fixed; inset:0 0 auto; height:3px; z-index:9999; overflow:hidden; background:#1db95420; }
+.app-loading > span { display:block; height:100%; width:38%; background:#1db954; transform:translateX(-110%); animation:app-loading-progress 1.15s ease-in-out infinite; }
+@keyframes app-loading-progress { to { transform:translateX(365%); } }
+@media(prefers-reduced-motion:reduce) { .app-loading > span { animation:none; width:100%; transform:none; } }

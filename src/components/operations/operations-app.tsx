@@ -1,3 +1,5 @@
+import { BusinessWorkspace } from "@/components/business/business-workspace";
+import { AcceptInvitation } from "@/components/business/accept-invitation";
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
@@ -94,7 +96,32 @@ export default function OperationsApp() {
     [password, setPassword] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [registering, setRegistering] = useState(false);
+  const [authNotice, setAuthNotice] = useState("");
+  const [invitationToken] = useState(() => {
+    if (window.location.pathname !== "/invitation") return "";
+    return (
+      new URLSearchParams(window.location.hash.slice(1)).get("token") ||
+      new URLSearchParams(window.location.search).get("invitation") ||
+      sessionStorage.getItem("yolo.business.invitation") ||
+      ""
+    );
+  });
+  useEffect(() => {
+    if (invitationToken) {
+      sessionStorage.setItem("yolo.business.invitation", invitationToken);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("invitation");
+      if (url.hash.startsWith("#token=")) url.hash = "";
+      window.history.replaceState(
+        null,
+        "",
+        url.pathname + url.search + url.hash,
+      );
+    }
+  }, [invitationToken]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [missionsLoading, setMissionsLoading] = useState(false);
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [sites, setSites] = useState<Pickup[]>([]),
     [site, setSite] = useState(""),
@@ -173,14 +200,24 @@ export default function OperationsApp() {
     const current = ++readVersion.current;
     setMissions([]);
     setChallenge(null);
-    if (!site || !userId) return;
+    if (!site || !userId) {
+      setMissionsLoading(false);
+      return;
+    }
+    setMissionsLoading(true);
     const refresh = () =>
       rpc<Mission[]>("operator_list_deliveries", { p_location_id: site })
         .then((rows) => {
-          if (current === readVersion.current) setMissions(rows);
+          if (current === readVersion.current) {
+            setMissions(rows);
+            setMissionsLoading(false);
+          }
         })
         .catch((e) => {
-          if (current === readVersion.current) setError(e.message);
+          if (current === readVersion.current) {
+            setError(e.message);
+            setMissionsLoading(false);
+          }
         });
     void refresh();
     const timer = setInterval(() => void refresh(), 15000);
@@ -338,9 +375,6 @@ export default function OperationsApp() {
             </span>
           </a>
           <div className="flex gap-3 items-center">
-            <a href="/demo" className="text-xs underline">
-              Voir la démonstration
-            </a>
             {session && (
               <Button
                 variant="outline"
@@ -360,7 +394,13 @@ export default function OperationsApp() {
           </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto p-5 md:p-9 flex flex-col gap-6">
+      <main
+        className={
+          session
+            ? "business-main-root"
+            : "max-w-6xl mx-auto p-5 md:p-9 flex flex-col gap-6"
+        }
+      >
         {error && (
           <div
             role="alert"
@@ -398,6 +438,24 @@ export default function OperationsApp() {
               onSubmit={(e) => {
                 e.preventDefault();
                 void run(async () => {
+                  if (registering) {
+                    const { error: failure } = await supabase!.auth.signUp({
+                      email: email.trim(),
+                      password,
+                      options: {
+                        emailRedirectTo:
+                          window.location.origin +
+                          "/invitation?invitation=" +
+                          encodeURIComponent(invitationToken),
+                      },
+                    });
+                    if (failure) throw Error(failure.message);
+                    setAuthNotice(
+                      "Vérifiez votre messagerie pour confirmer votre adresse, puis ouvrez à nouveau votre invitation.",
+                    );
+                    setPassword("");
+                    return;
+                  }
                   const { error: failure } =
                     await supabase!.auth.signInWithPassword({
                       email: email.trim(),
@@ -425,31 +483,77 @@ export default function OperationsApp() {
                 Mot de passe
                 <Input
                   type="password"
-                  autoComplete="current-password"
+                  minLength={registering ? 12 : undefined}
+                  autoComplete={
+                    registering ? "new-password" : "current-password"
+                  }
                   value={password}
                   required
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </label>
               <Button variant="yolo" size="lg" disabled={busy} type="submit">
-                {busy ? "Connexion…" : "Se connecter"}
+                {busy
+                  ? "Veuillez patienter…"
+                  : registering
+                    ? "Créer mon compte"
+                    : "Se connecter"}
                 <ArrowRight data-icon="inline-end" />
               </Button>
             </form>
+            {authNotice && (
+              <p role="status" className="mt-4 text-sm">
+                {authNotice}
+              </p>
+            )}
+            {invitationToken && (
+              <button
+                type="button"
+                className="mt-4 text-sm underline"
+                onClick={() => setRegistering(!registering)}
+              >
+                {registering
+                  ? "J’ai déjà un compte"
+                  : "Créer mon compte pour rejoindre l’équipe"}
+              </button>
+            )}
             <p className="text-xs text-muted-foreground mt-5">
               L’accès aux points de retrait est accordé par l’équipe Yolo.
             </p>
           </section>
+        ) : window.location.pathname === "/invitation" ? (
+          <AcceptInvitation
+            onAccepted={() => {
+              window.location.href = "/app";
+            }}
+          />
         ) : (
-          <>
+          <BusinessWorkspace
+            key={userId}
+            settings={
+              <AccountSettings
+                key={userId}
+                locations={sites}
+                isAdmin={isAdmin}
+                onUpdated={() => setWorkspaceRevision((v) => v + 1)}
+              />
+            }
+            sites={sites}
+            site={site}
+            setSite={setSite}
+            missions={missions}
+            userId={userId!}
+            email={session.user.email || "Mon compte"}
+            locked={busy || hasPending}
+            loading={missionsLoading}
+            onCreate={() => setCreating(true)}
+          >
             <div className="flex flex-wrap gap-4 items-center justify-between">
               <div>
                 <p className="text-xs tracking-widest text-muted-foreground mb-2">
                   ESPACE CONNECTÉ
                 </p>
-                <h1 className="text-3xl font-bold">
-                  Vos colis, leurs destinations.
-                </h1>
+                <h1 className="text-3xl font-bold">Vos livraisons</h1>
               </div>
               <Button
                 variant="yolo"
@@ -461,39 +565,12 @@ export default function OperationsApp() {
                 Nouvelle demande
               </Button>
             </div>
-            <AccountSettings
-              key={userId}
-              locations={sites}
-              isAdmin={isAdmin}
-              onUpdated={() => setWorkspaceRevision((v) => v + 1)}
-            />
+
             {sites.some((s) => !s.active) && (
               <p className="border rounded-xl p-4">
                 Confirmez le point de retrait dans « Mon compte » pour créer vos
                 demandes.
               </p>
-            )}
-            {sites.length === 0 ? (
-              <p className="border rounded-xl p-6">
-                Votre compte est connecté. Aucun point de retrait ne lui est
-                encore attribué. L’équipe Yolo doit activer cet accès.
-              </p>
-            ) : (
-              <label className="text-sm flex flex-col gap-2 max-w-md">
-                Point de retrait
-                <select
-                  className="border rounded-md p-2 bg-card"
-                  value={site}
-                  disabled={busy || hasPending}
-                  onChange={(e) => setSite(e.target.value)}
-                >
-                  {sites.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} · {s.address}
-                    </option>
-                  ))}
-                </select>
-              </label>
             )}
             {hasPending && (
               <Button disabled={busy} onClick={() => void confirm()}>
@@ -665,9 +742,8 @@ export default function OperationsApp() {
                     : `Confirmer la demande de ${parcels.length} colis`}
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Cet espace pilote est réservé aux opérateurs habilités. Les
-                  tarifs commerçants automatisés et les reversements ne sont pas
-                  encore activés.
+                  Vérifiez les coordonnées et le montant de livraison de chaque
+                  colis avant de confirmer.
                 </p>
               </section>
             )}
@@ -821,7 +897,7 @@ export default function OperationsApp() {
                 )}
               </section>
             )}
-          </>
+          </BusinessWorkspace>
         )}
       </main>
     </div>
