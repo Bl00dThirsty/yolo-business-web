@@ -19,8 +19,7 @@ export default function App() {
         </div>
       }
     >
-      {path.startsWith("/demo") ||
-      path === "/invitation" ||
+      {path === "/invitation" ||
       path === "/connexion" ||
       path === "/app" ||
       path.startsWith("/suivi") ? (

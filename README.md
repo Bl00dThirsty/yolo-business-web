@@ -6,7 +6,7 @@ Interface Vite, React et TypeScript pour les points de retrait Yolo.
 
 - `/` : accueil public de Yolo Business.
 - `/connexion` (alias `/app`) : espace connecté existant.
-- `/demo` : alias de compatibilité vers le même espace authentifié.
+- `/demo` : ancienne adresse redirigée vers `/app` (redirection permanente en production).
 - `/invitation` : connexion ou inscription, puis acceptation d’une invitation nominative.
 
 Copier `.env.example` vers `.env.local` et renseigner l'URL Supabase et sa clé publique. Aucune clé de service dans le navigateur.
