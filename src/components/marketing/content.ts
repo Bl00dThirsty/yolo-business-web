@@ -7,7 +7,7 @@ export { handoff, customer, city, sunset, warehouse };
 export const faq = [
   [
     "Comment commencer avec Yolo Business ?",
-    "Découvrez l’espace de démonstration, puis préparez votre demande de prise de contact. L’équipe Yolo vous accompagne pour définir vos points de collecte et activer votre accès.",
+    "Connectez-vous à votre espace entreprise ou préparez votre demande de prise de contact. L’équipe Yolo vous accompagne pour définir vos points de collecte et activer votre accès.",
   ],
   [
     "Dans quelles zones livrez-vous ?",
@@ -22,8 +22,8 @@ export const faq = [
     "Le parcours cible prévoit un code envoyé au destinataire sur WhatsApp. Celui-ci le communique au livreur au moment de recevoir son colis. La disponibilité de ce parcours doit être confirmée lors de votre activation.",
   ],
   [
-    "Puis-je essayer la plateforme ?",
-    "Oui. L’espace de démonstration permet d’explorer l’interface avec des données fictives, sans déclencher de livraison réelle.",
+    "Comment accéder à mon espace ?",
+    "Votre espace est accessible après activation de votre compte. Vous y retrouvez vos livraisons, votre équipe et vos factures clients.",
   ],
 ];
 export const steps = [
@@ -107,7 +107,7 @@ export const pages: Record<
       ],
       [
         "De la visibilité au quotidien",
-        "Consultez vos opérations et les étapes disponibles pour votre compte. La démonstration présente aussi des fonctionnalités en cours de développement.",
+        "Consultez vos livraisons et les informations de votre point de retrait depuis votre compte connecté.",
       ],
       [
         "À votre rythme",
@@ -194,7 +194,7 @@ export const pages: Record<
       ],
       [
         "Construire ensemble",
-        "Les premiers retours des commerces et livreurs nous aident à améliorer le parcours. Découvrez la démonstration et préparez vos remarques.",
+        "Les premiers retours des commerces et livreurs nous aident à améliorer le parcours. Retrouvez votre espace et faites-nous part de vos besoins.",
       ],
     ],
   },
@@ -234,8 +234,8 @@ export const pages: Record<
         "Les coordonnées officielles et les informations de l’hébergeur seront publiées ici après validation.",
       ],
       [
-        "Démonstration",
-        "Les écrans de démonstration contiennent des données fictives. Ils ne constituent ni une offre ferme ni une confirmation de disponibilité du service.",
+        "Espace entreprise",
+        "L’espace connecté présente les opérations accessibles à votre compte. Les conditions de prise en charge sont confirmées avant toute livraison.",
       ],
     ],
   },
@@ -255,7 +255,7 @@ export const pages: Record<
       ],
       [
         "Vos demandes",
-        "Le contact dédié à la protection des données sera ajouté ici. Ne transmettez pas de données sensibles dans la démonstration.",
+        "Le contact dédié à la protection des données sera ajouté ici. Transmettez uniquement les informations nécessaires au traitement de votre demande.",
       ],
     ],
   },
@@ -266,8 +266,8 @@ export const pages: Record<
       "Version de travail informative. Les conditions commerciales définitives restent à compléter et à valider.",
     sections: [
       [
-        "La démonstration",
-        "Elle permet d’explorer l’interface avec des données fictives. Aucune livraison ni aucun paiement réel n’y est déclenché.",
+        "L’espace entreprise",
+        "L’espace connecté permet de gérer vos livraisons et vos factures clients. Vérifiez les coordonnées et les montants avant de confirmer une action.",
       ],
       [
         "La plateforme",
@@ -290,8 +290,8 @@ export const pages: Record<
         "Cette version n’ajoute pas d’outil publicitaire ou de mesure d’audience aux pages de présentation. Les animations respectent votre préférence de réduction des mouvements.",
       ],
       [
-        "Connexion & démonstration",
-        "L’espace connecté peut conserver les éléments nécessaires à votre session dans le navigateur. La démonstration peut mémoriser ses préférences localement.",
+        "Connexion et préférences",
+        "L’espace connecté peut conserver les éléments nécessaires à votre session dans le navigateur. L’espace entreprise peut mémoriser ses préférences localement.",
       ],
       [
         "Votre navigateur",

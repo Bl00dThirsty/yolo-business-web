@@ -1,3 +1,5 @@
+import ScrambleLabel from "./scramble-label";
+import AnimatedHeading from "./animated-heading";
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -29,7 +31,7 @@ const footerLinks = [
       ["Découvrir Yolo", "/solution"],
       ["Comment ça marche", "/fonctionnement"],
       ["Les tarifs", "/tarifs"],
-      ["Explorer la démo", "/demo"],
+      ["Accéder à mon espace", "/app"],
     ],
   },
   {
@@ -81,8 +83,8 @@ function Arrow({
   );
 }
 function CTA({
-  href = "/demo",
-  children = "Explorer la démo",
+  href = "/app",
+  children = "Accéder à mon espace",
 }: {
   href?: string;
   children?: React.ReactNode;
@@ -172,11 +174,11 @@ function Contact() {
   return (
     <section className="m-contact m-container">
       <div>
-        <span className="m-eyebrow">PARLONS DE VOS LIVRAISONS</span>
-        <h1>
+        <ScrambleLabel>PARLONS DE VOS LIVRAISONS</ScrambleLabel>
+        <AnimatedHeading as="h1">
           Un bon départ <br />
           commence ici.
-        </h1>
+        </AnimatedHeading>
         <p>Présentez-nous votre activité et vos besoins.</p>
         <div className="m-contact-note">
           Le formulaire prépare votre demande sans l’envoyer. Le canal de
@@ -246,11 +248,11 @@ function Home() {
           <span className="m-eyebrow">
             <i /> VOTRE COMMERCE. PLUS LOIN.
           </span>
-          <h1>
+          <AnimatedHeading as="h1">
             Vous faites <br />
             du business. <br />
             <em>Nous livrons.</em>
-          </h1>
+          </AnimatedHeading>
           <p>
             De votre boutique à la porte de vos clients.
             <br className="m-desktop-break" /> Une façon plus simple d’organiser
@@ -283,7 +285,7 @@ function Home() {
             <span>En mouvement, pour vous.</span>
           </div>
           <span className="m-vertical-label">
-            DE VOTRE BOUTIQUE À LEUR PORTE — YOLO BUSINESS
+            DE VOTRE BOUTIQUE À LEUR PORTE. YOLO BUSINESS
           </span>
         </div>
       </section>
@@ -299,11 +301,11 @@ function Home() {
       </div>
       <section className="m-section m-container" data-reveal>
         <div className="m-section-heading">
-          <span className="m-eyebrow">MOINS DE COMPLICATIONS</span>
-          <h2>
+          <ScrambleLabel>MOINS DE COMPLICATIONS</ScrambleLabel>
+          <AnimatedHeading>
             Vous avez déjà beaucoup à faire. <br />
             <span>La livraison peut être plus simple.</span>
-          </h2>
+          </AnimatedHeading>
         </div>
         <div className="m-benefits">
           {[
@@ -333,68 +335,33 @@ function Home() {
       </section>
       <section className="m-platform m-container" data-reveal>
         <div>
-          <span className="m-eyebrow">VOTRE NOUVEAU POINT DE DÉPART</span>
-          <h2>
+          <ScrambleLabel>VOTRE NOUVEAU POINT DE DÉPART</ScrambleLabel>
+          <AnimatedHeading>
             Un espace clair. <br />
             L’esprit plus libre.
-          </h2>
+          </AnimatedHeading>
           <p>
             Retrouvez l’essentiel de vos livraisons dans Yolo Business. Prenez
             quelques minutes pour découvrir la plateforme.
           </p>
-          <CTA>Visiter l’espace démo</CTA>
-          <small>Aperçu illustratif · données fictives</small>
+          <CTA>Ouvrir mon espace</CTA>
+          <small>Votre activité réunie au même endroit</small>
         </div>
         <div className="m-dashboard">
-          <div className="m-dashboard-top">
-            <strong>
-              yolo<span>business</span>
-            </strong>
-            <span>Bonjour, Léa.</span>
-          </div>
-          <div className="m-dashboard-title">
-            <h3>Vos livraisons</h3>
-            <span>Aujourd’hui</span>
-          </div>
-          <div className="m-metrics">
-            <div>
-              <span>Colis du jour</span>
-              <strong>12</strong>
-            </div>
-            <div>
-              <span>En livraison</span>
-              <strong>04</strong>
-            </div>
-            <div>
-              <span>Livrés</span>
-              <strong>08</strong>
-            </div>
-          </div>
+          <div className="m-dashboard-top"><strong>yolo<span>business</span></strong><span>Votre espace entreprise</span></div>
+          <div className="m-dashboard-title"><h3>Votre quotidien, simplifié.</h3></div>
           <div className="m-rows">
-            {[
-              ["YL-0248", "Bastos", "En livraison"],
-              ["YL-0247", "Mvan", "Livré"],
-              ["YL-0246", "Essos", "Livré"],
-            ].map(([r, a, s]) => (
-              <div key={r}>
-                <strong>{r}</strong>
-                <span>{a}</span>
-                <span className={s === "Livré" ? "m-delivered" : "m-transit"}>
-                  {s}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="m-dashboard-bottom">
-            Chaque colis, une étape de plus. <Arrow />
+            <a href="/app"><div><strong>Vos livraisons</strong><p>Préparer les colis et suivre leur prise en charge.</p></div><Arrow /></a>
+            <a href="/app"><div><strong>Vos factures clients</strong><p>Créer, imprimer et partager sur WhatsApp.</p></div><Arrow /></a>
+            <a href="/app"><div><strong>Votre équipe</strong><p>Retrouver les accès de vos collaborateurs.</p></div><Arrow /></a>
           </div>
         </div>
       </section>
       <section className="m-section m-container" data-reveal>
         <div className="m-section-heading m-heading-row">
           <div>
-            <span className="m-eyebrow">DU DÉPART AU SOURIRE</span>
-            <h2>Simple, à chaque étape.</h2>
+            <ScrambleLabel>DU DÉPART AU SOURIRE</ScrambleLabel>
+            <AnimatedHeading>Simple, à chaque étape.</AnimatedHeading>
           </div>
           <a className="m-text-link" href="/fonctionnement">
             Découvrir le parcours <Arrow />
@@ -410,12 +377,12 @@ function Home() {
             loading="lazy"
           />
           <div>
-            <span className="m-eyebrow">LE COMMERCE A MILLE VISAGES</span>
-            <h2>
+            <ScrambleLabel>LE COMMERCE A MILLE VISAGES</ScrambleLabel>
+            <AnimatedHeading>
               Il y a votre façon <br />
               de vendre. <br />
               <em>Et Yolo pour livrer.</em>
-            </h2>
+            </AnimatedHeading>
             <p>
               Une boutique de quartier, une marque sur Instagram, une activité
               qui grandit. Chaque commerce mérite une livraison à sa mesure.
@@ -429,8 +396,8 @@ function Home() {
       <section className="m-section m-container" data-reveal>
         <div className="m-section-heading m-heading-row">
           <div>
-            <span className="m-eyebrow">UN PEU D’INSPIRATION</span>
-            <h2>Le coin des commerçants.</h2>
+            <ScrambleLabel>UN PEU D’INSPIRATION</ScrambleLabel>
+            <AnimatedHeading>Le coin des commerçants.</AnimatedHeading>
           </div>
           <a className="m-text-link" href="/ressources">
             Tous les guides <Arrow />
@@ -441,10 +408,10 @@ function Home() {
       <section className="m-section m-container m-faq-section" data-reveal>
         <div>
           <span className="m-eyebrow">ON VOUS RÉPOND</span>
-          <h2>
+          <AnimatedHeading>
             Avant de <br />
             vous lancer.
-          </h2>
+          </AnimatedHeading>
           <a className="m-text-link" href="/contact">
             Une autre question ? <Arrow />
           </a>
@@ -465,7 +432,7 @@ function PageContent({ path }: { path: string }) {
           <Arrow direction="left" /> Tous les guides
         </a>
         <span className="m-eyebrow">{article.category}</span>
-        <h1>{article.title}</h1>
+        <AnimatedHeading as="h1">{article.title}</AnimatedHeading>
         <img src={article.image} alt="" />
         <div>
           {article.paragraphs.map((p, i) => (
@@ -481,13 +448,13 @@ function PageContent({ path }: { path: string }) {
     return (
       <section className="m-container m-subpage">
         <span className="m-eyebrow">YOLO BUSINESS</span>
-        <h1>
+        <AnimatedHeading as="h1">
           {path === "/fonctionnement"
             ? "Votre colis. Trois étapes."
             : path === "/faq"
               ? "Vos questions, simplement."
               : "Des idées pour aller plus loin."}
-        </h1>
+        </AnimatedHeading>
         <p className="m-page-intro">
           {path === "/fonctionnement"
             ? "Un parcours pensé pour vous, votre livreur et votre client."
@@ -509,10 +476,10 @@ function PageContent({ path }: { path: string }) {
     return (
       <section className="m-container m-subpage">
         <span className="m-eyebrow">404 · MAUVAISE ADRESSE</span>
-        <h1>
+        <AnimatedHeading as="h1">
           Cette page a pris <br />
           un autre chemin.
-        </h1>
+        </AnimatedHeading>
         <p className="m-page-intro">Retrouvons le bon point de départ.</p>
         <CTA href="/">Retour à l’accueil</CTA>
       </section>
@@ -520,7 +487,7 @@ function PageContent({ path }: { path: string }) {
   return (
     <section className="m-container m-subpage">
       <span className="m-eyebrow">{page.eyebrow}</span>
-      <h1>{page.title}</h1>
+      <AnimatedHeading as="h1">{page.title}</AnimatedHeading>
       <p className="m-page-intro">{page.intro}</p>
       {page.image && (
         <img
@@ -533,7 +500,7 @@ function PageContent({ path }: { path: string }) {
         {page.sections.map(([t, b], i) => (
           <section key={t}>
             <span className="m-eyebrow">0{i + 1}</span>
-            <h2>{t}</h2>
+            <AnimatedHeading>{t}</AnimatedHeading>
             <p>{b}</p>
           </section>
         ))}
@@ -557,7 +524,7 @@ export default function MarketingApp() {
     if (article) {
       updatePageSEO(
         {
-          title: `${article.title} — Guide Yolo Business`,
+          title: `${article.title}. Guide Yolo Business`,
           description:
             article.paragraphs[0] ||
             "Guide pratique de livraison pour commerçants.",
@@ -582,9 +549,23 @@ export default function MarketingApp() {
         .toArray<HTMLElement>("[data-reveal]", root.current)
         .forEach((el) => {
           gsap.from(el, {
-            opacity: 0,
-            y: 28,
+            opacity: el.querySelector("h1,h2") ? 1 : 0,
+            y: el.querySelector("h1,h2") ? 0 : 28,
             duration: 0.85,
+            ease: "power2.out",
+            scrollTrigger: { trigger: el, start: "top 94%", once: true },
+          });
+        });
+      gsap.utils
+        .toArray<HTMLElement>(
+          ".m-hero-copy > p, .m-page-intro, .m-eyebrow:not(.m-scramble-label)",
+          root.current,
+        )
+        .forEach((el) => {
+          gsap.from(el, {
+            opacity: 0,
+            y: 12,
+            duration: 0.65,
             ease: "power2.out",
             scrollTrigger: { trigger: el, start: "top 94%", once: true },
           });
@@ -643,10 +624,10 @@ export default function MarketingApp() {
         <PageContent path={path} />
         <section className="m-final-cta m-container" data-reveal>
           <span className="m-eyebrow">ON FAIT LE CHEMIN ENSEMBLE ?</span>
-          <h2>
+          <AnimatedHeading>
             Votre prochain colis. <br />
             <em>Notre prochain départ.</em>
-          </h2>
+          </AnimatedHeading>
           <CTA href="/connexion">Accéder à mon espace</CTA>
           <a className="m-text-link" href="/contact">
             Nouveau chez Yolo ? Parlons-en <Arrow />
