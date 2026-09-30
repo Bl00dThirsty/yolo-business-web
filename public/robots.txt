@@ -1,0 +1,13 @@
+# robots.txt for Yolo Business
+# https://business.yolo-hub.com
+
+User-agent: *
+Allow: /
+
+# Private operational workspace and internal authenticated routes
+Disallow: /app
+Disallow: /connexion
+Disallow: /suivi/
+
+# Sitemap location
+Sitemap: https://business.yolo-hub.com/sitemap.xml
