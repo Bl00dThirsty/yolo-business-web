@@ -152,25 +152,28 @@ export function BusinessWorkspace({
                 Nouvelle livraison
               </button>
             </div>
-            <div className="bw-stats">
+            <dl className="bw-stats" aria-label="Statistiques des livraisons" aria-busy={loading}>
               {[
-                ["Livraisons récentes", missions.length],
-                ["En cours", inProgress],
+                ["Livraisons récentes", missions.length, "Dernières demandes reçues"],
+                ["En cours", inProgress, "En attente ou en livraison"],
                 [
                   "Livrées",
                   missions.filter((m) => m.status === "delivered").length,
+                  "Remises au destinataire",
                 ],
                 [
                   "Annulées",
                   missions.filter((m) => m.status === "cancelled").length,
+                  "Demandes annulées",
                 ],
-              ].map(([label, value]) => (
-                <div className="bw-card" key={label}>
-                  <span>{label}</span>
-                  <strong>{loading ? "…" : value}</strong>
+              ].map(([label, value, description]) => (
+                <div className="bw-stat" key={label}>
+                  <dt>{label}</dt>
+                  <dd>{loading ? <span aria-label="Chargement">…</span> : value}</dd>
+                  <p>{description}</p>
                 </div>
               ))}
-            </div>
+            </dl>
             <p className="bw-hint">
               Indicateurs sur les 100 dernières livraisons du point sélectionné.
             </p>
