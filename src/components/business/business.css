@@ -141,8 +141,12 @@
 }
 .bw-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 17px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  background: #fff;
+  border: 1px solid #e2e2e2;
+  border-radius: 15px;
+  overflow: hidden;
 }
 .bw-card,
 .bw-table-card {
@@ -152,23 +156,21 @@
   padding: 23px;
   margin-bottom: 20px;
 }
-.bw-stats .bw-card {
-  margin: 0;
+.bw-stat {
+  min-width: 0;
+  padding: 22px 24px 20px;
 }
-.bw-stats span {
-  font-size: 11px;
-  color: #77806c;
+.bw-stat + .bw-stat { border-left: 1px solid #e2e2e2; }
+.bw-stat dt { font-size: 13px; font-weight: 500; line-height: 1.5; }
+.bw-stat dd {
+  margin: 15px 0 10px;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1.2px;
 }
-.bw-stats strong {
-  display: block;
-  font-size: 37px;
-  font-weight: 650;
-  letter-spacing: -1px;
-  margin-top: 14px;
-}
-.bw-stats .bw-card:nth-child(3) {
-  background: #e0f5e7;
-}
+.bw-stat p { margin: 0; font-size: 11px; line-height: 1.6; color: #697386; }
 .bw-hint {
   font-size: 11px;
   color: #737d6a;
@@ -586,10 +588,9 @@
   .bw-main {
     padding: 20px 15px;
   }
-  .bw-stats {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
+  .bw-stats { grid-template-columns: 1fr; }
+  .bw-stat { padding: 20px 23px; }
+  .bw-stat + .bw-stat { border-left: 0; border-top: 1px solid #e2e2e2; }
   .bw-workspace-bar {
     align-items: flex-start;
   }
