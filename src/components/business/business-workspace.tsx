@@ -1,5 +1,5 @@
 import "@fontsource-variable/manrope";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   LayoutDashboard,
@@ -7,13 +7,11 @@ import {
   MapPin,
   Users,
   Settings,
-  FileText,
   Plus,
   ArrowRight,
   Menu,
   X,
 } from "lucide-react";
-import { InvoicesView } from "./invoices-view";
 import { BusinessTeam } from "./team-view";
 import "./business.css";
 interface Site {
@@ -42,7 +40,6 @@ const statuses: Record<string, string> = {
 const navigation = [
   ["dashboard", "Tableau de bord", LayoutDashboard],
   ["deliveries", "Livraisons", Package],
-  ["invoices", "Factures clients", FileText],
   ["sites", "Points de retrait", MapPin],
   ["team", "Équipe", Users],
   ["settings", "Paramètres", Settings],
@@ -59,6 +56,8 @@ export function BusinessWorkspace({
   locked,
   onCreate,
   loading,
+  lastUpdated,
+  readFailed,
 }: {
   children: ReactNode;
   settings: ReactNode;
@@ -71,9 +70,17 @@ export function BusinessWorkspace({
   locked: boolean;
   onCreate: () => void;
   loading: boolean;
+  lastUpdated: Date | null;
+  readFailed: boolean;
 }) {
   const [view, setView] = useState<string>("dashboard"),
     [menu, setMenu] = useState(false);
+  const viewHeading = useRef<HTMLDivElement>(null);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) { firstView.current = false; return; }
+    viewHeading.current?.focus({ preventScroll: true });
+  }, [view]);
   const selected = sites.find((s) => s.id === site);
   const inProgress = missions.filter(
     (m) => !["delivered", "cancelled"].includes(m.status),
@@ -114,7 +121,7 @@ export function BusinessWorkspace({
           <small>Votre espace Yolo Business</small>
         </div>
       </aside>
-      <div className="bw-main">
+      <div className="bw-main" ref={viewHeading} tabIndex={-1}>
         <div className="bw-workspace-bar">
           <label>
             Point de retrait
@@ -135,6 +142,7 @@ export function BusinessWorkspace({
             {selected?.active ? "Point actif" : "Activation à compléter"}
           </span>
         </div>
+        {lastUpdated && <p className="bw-sync-status">{readFailed ? "Dernière actualisation réussie" : "Actualisé"} à {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>}
         {view === "dashboard" && (
           <>
             <div className="bw-page-heading">
@@ -169,7 +177,7 @@ export function BusinessWorkspace({
               ].map(([label, value, description]) => (
                 <div className="bw-stat" key={label}>
                   <dt>{label}</dt>
-                  <dd>{loading ? <span aria-label="Chargement">…</span> : value}</dd>
+                  <dd>{loading ? <span className="bw-number-skeleton" aria-label="Chargement" /> : readFailed && !lastUpdated ? "Indisponible" : value}</dd>
                   <p>{description}</p>
                 </div>
               ))}
@@ -187,7 +195,7 @@ export function BusinessWorkspace({
                 </div>
                 {loading ? (
                   <p role="status">Actualisation des livraisons…</p>
-                ) : missions.length === 0 ? (
+                ) : readFailed && !lastUpdated ? <p className="bw-empty">Les livraisons ne sont pas disponibles pour le moment.</p> : missions.length === 0 ? (
                   <div className="bw-empty">
                     <Package size={28} />
                     <h3>Prêt pour votre premier départ ?</h3>
@@ -224,14 +232,6 @@ export function BusinessWorkspace({
               </div>
               <div className="bw-card bw-quick-actions">
                 <h2>Actions rapides</h2>
-                <button disabled={!site} onClick={() => navigate("invoices")}>
-                  <FileText size={19} />
-                  <span>
-                    Créer une facture
-                    <small>Articles, livraison et aperçu</small>
-                  </span>
-                  <ArrowRight size={16} />
-                </button>
                 <button disabled={!site} onClick={() => navigate("team")}>
                   <Users size={19} />
                   <span>
@@ -253,21 +253,6 @@ export function BusinessWorkspace({
           </>
         )}
         <div hidden={view !== "deliveries"}>{children}</div>
-        {view === "invoices" &&
-          (selected ? (
-            <InvoicesView
-              userId={userId}
-              key={`${userId}:${site}`}
-              locationId={site}
-              name={selected.name}
-              address={selected.address}
-            />
-          ) : (
-            <p className="bw-empty">
-              Un point de retrait doit être attribué à votre compte pour créer
-              des factures.
-            </p>
-          ))}
         {view === "team" &&
           (site ? (
             <BusinessTeam

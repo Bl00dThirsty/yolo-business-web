@@ -1,0 +1,35 @@
+.yolo-auth-shell { min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 20px 32px; background: #f5f5f5; color: #191414; font-family: "Manrope Variable", sans-serif; }
+.yolo-auth-card { width: 100%; max-width: 470px; padding: 40px; border: 1px solid #e5e5e5; border-radius: 16px; background: #fff; box-shadow: 0 2px 3px #19141403, 0 18px 55px #19141404; animation: auth-appear .35s ease-out both; }
+.yolo-auth-brand { display: flex; flex-direction: column; align-items: center; width: max-content; margin: 0 auto 28px; }
+.yolo-auth-brand img { width: 76px; height: auto; }
+.yolo-auth-brand span { font-size: 8px; font-weight: 700; letter-spacing: 3px; margin-top: 4px; }
+.yolo-auth-card h1 { font-family: inherit; text-align: center; font-weight: 650; font-size: 25px; line-height: 1.3; letter-spacing: -.7px; }
+.yolo-auth-intro { text-align: center; font-size: 13px; color: #717171; line-height: 1.7; margin: 12px 0 30px; }
+.yolo-auth-card fieldset { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.yolo-auth-card label { display: block; font-size: 12px; font-weight: 650; }
+.yolo-auth-card label > span { color: #a44332; }
+.yolo-auth-card input { display: block; width: 100%; height: 48px; margin-top: 9px; border: 1px solid transparent; border-radius: 8px; background: #f5f5f5; padding: 0 14px; font: inherit; font-size: 14px; font-weight: 400; transition: border-color .16s, background .16s, box-shadow .16s; }
+.yolo-auth-card input::placeholder { color: #858585; }
+.yolo-auth-card input:focus { outline: none; border-color: #1db954; box-shadow: 0 0 0 3px #1db95418; background: #fff; }
+.yolo-auth-password { position: relative; }
+.yolo-auth-password input { padding-right: 48px; }
+.yolo-auth-password button { position: absolute; top: 0; right: 0; width: 46px; height: 48px; display: grid; place-items: center; color: #737373; }
+.yolo-auth-card small { display: block; font-size: 11px; margin-top: 8px; color: #737373; }
+.yolo-auth-forgot { align-self: flex-end; font-size: 11px; margin-top: -10px; text-decoration: underline; text-underline-offset: 4px; }
+.yolo-auth-submit { min-height: 48px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; background: #191414; color: white; border-radius: 8px; padding: 12px 18px; font-size: 13px; font-weight: 600; transition: background .16s, transform .16s; }
+.yolo-auth-submit:hover { background: #303030; }
+.yolo-auth-submit:active { transform: translateY(1px); }
+.yolo-auth-card button:disabled, .yolo-auth-card fieldset:disabled { opacity: .65; cursor: wait; }
+.yolo-auth-card button:focus-visible, .yolo-auth-shell a:focus-visible { outline: 2px solid #14823b; outline-offset: 4px; border-radius: 4px; }
+.yolo-auth-bottom { border-top: 1px solid #eee; margin-top: 28px; padding-top: 24px; text-align: center; font-size: 12px; color: #717171; }
+.yolo-auth-bottom a { color: #191414; text-decoration: underline; text-underline-offset: 4px; margin-left: 4px; }
+.yolo-auth-bottom button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: #191414; }
+.yolo-auth-footer { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; font-size: 10px; color: #747474; margin-top: 28px; }
+.yolo-auth-feedback { display: flex; align-items: flex-start; gap: 10px; padding: 13px; margin-bottom: 22px; border-radius: 8px; color: #21633a; background: #eef8f1; font-size: 12px; line-height: 1.7; }
+.yolo-auth-feedback svg { flex-shrink: 0; margin-top: 2px; }
+.yolo-auth-feedback.is-error { background: #fff2ee; color: #923d2b; }
+.yolo-spin { animation: yolo-spin 1s linear infinite; }
+@keyframes yolo-spin { to { transform: rotate(360deg); } }
+@keyframes auth-appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media(max-width: 520px) { .yolo-auth-shell { padding: 32px 18px; } .yolo-auth-card { padding: 32px 24px; } .yolo-auth-card input { font-size: 16px; } }
+@media(prefers-reduced-motion: reduce) { .yolo-auth-card, .yolo-spin { animation: none; } .yolo-auth-card * { transition: none !important; } }

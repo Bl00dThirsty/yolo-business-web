@@ -1,3 +1,4 @@
+import { AuthPage } from "./auth-page";
 import { BusinessWorkspace } from "@/components/business/business-workspace";
 import { AcceptInvitation } from "@/components/business/accept-invitation";
 import { useEffect, useRef, useState } from "react";
@@ -8,8 +9,8 @@ import {
   LogOut,
   RefreshCw,
   Package,
-  ArrowRight,
-  ShieldCheck,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,6 @@ interface Parcel {
   landmark: string;
   description: string;
   weight: string;
-  cash: string;
   fee: string;
   point: DestinationPoint | null;
 }
@@ -58,7 +58,6 @@ const blankParcel = (): Parcel => ({
   landmark: "",
   description: "",
   weight: "1000",
-  cash: "0",
   fee: "",
   point: null,
 });
@@ -92,12 +91,21 @@ async function rpc<T>(
 export default function OperationsApp() {
   const [session, setSession] = useState<Session | null>(null),
     [checking, setChecking] = useState(!!supabase);
-  const [email, setEmail] = useState(""),
-    [password, setPassword] = useState(""),
-    [busy, setBusy] = useState(false),
+  const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [registering, setRegistering] = useState(false);
-  const [authNotice, setAuthNotice] = useState("");
+  const [recovery, setRecovery] = useState(() => new URLSearchParams(window.location.search).get("reset") === "1" || new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery");
+  const [notice, setNotice] = useState("");
+  const [readError, setReadError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [offline, setOffline] = useState(!navigator.onLine);
+  const latestRead = useRef(0);
+  const errorPanel = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (error) errorPanel.current?.focus(); }, [error]);
+  useEffect(() => {
+    const online = () => setOffline(false), offline = () => setOffline(true);
+    window.addEventListener("online", online); window.addEventListener("offline", offline);
+    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+  }, []);
   const [invitationToken] = useState(() => {
     if (window.location.pathname !== "/invitation") return "";
     return (
@@ -154,17 +162,18 @@ export default function OperationsApp() {
   useEffect(() => {
     if (!supabase) return;
     let alive = true;
-    void supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (error) throw error;
       if (alive) {
         setSession(data.session);
         setChecking(false);
       }
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+    }).catch(() => { if (alive) { setChecking(false); setError("Votre session n’a pas pu être vérifiée. Rechargez la page."); } });
+    const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       setChecking(false);
-      setChallenge(null);
-      setProofs([]);
+      if (event === "PASSWORD_RECOVERY") setRecovery(true);
+      if (event === "SIGNED_OUT") { setChallenge(null); setProofs([]); setNotice(""); }
     });
     return () => {
       alive = false;
@@ -177,7 +186,6 @@ export default function OperationsApp() {
     setSite("");
     setMissions([]);
     setProofs([]);
-    rememberPending(null);
     setParcels([blankParcel()]);
     if (!userId) return;
     let active = true;
@@ -186,7 +194,7 @@ export default function OperationsApp() {
         if (active) {
           setIsAdmin(data.is_admin);
           setSites(data.locations);
-          setSite(data.locations[0]?.id ?? "");
+          setSite(data.locations.find(l => l.id === pending.current?.payload.location_id)?.id ?? data.locations[0]?.id ?? "");
         }
       })
       .catch((e) => {
@@ -198,61 +206,50 @@ export default function OperationsApp() {
   }, [userId, workspaceRevision]);
   useEffect(() => {
     const current = ++readVersion.current;
-    setMissions([]);
-    setChallenge(null);
-    if (!site || !userId) {
-      setMissionsLoading(false);
-      return;
-    }
+    setMissions([]); setLastUpdated(null); setReadError(""); setChallenge(null);
+    if (!site || !userId) { setMissionsLoading(false); return; }
     setMissionsLoading(true);
-    const refresh = () =>
-      rpc<Mission[]>("operator_list_deliveries", { p_location_id: site })
-        .then((rows) => {
-          if (current === readVersion.current) {
-            setMissions(rows);
-            setMissionsLoading(false);
-          }
-        })
-        .catch((e) => {
-          if (current === readVersion.current) {
-            setError(e.message);
-            setMissionsLoading(false);
-          }
-        });
-    void refresh();
-    const timer = setInterval(() => void refresh(), 15000);
-    return () => {
-      readVersion.current++;
-      clearInterval(timer);
+    const poll = async () => {
+      const request = ++latestRead.current;
+      try {
+        const rows = await rpc<Mission[]>("operator_list_deliveries", { p_location_id: site });
+        if (current === readVersion.current && request === latestRead.current) {
+          setMissions(rows); setMissionsLoading(false); setReadError(""); setLastUpdated(new Date());
+        }
+      } catch {
+        if (current === readVersion.current && request === latestRead.current) {
+          setReadError("Actualisation impossible. Les informations affichées peuvent être anciennes."); setMissionsLoading(false);
+        }
+      }
     };
+    void poll();
+    const timer = setInterval(() => void poll(), 15000);
+    return () => { readVersion.current++; clearInterval(timer); };
   }, [site, userId]);
   useEffect(() => {
     if (!challenge) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, [challenge]);
+  useEffect(() => {
+    if (!creating && !hasPending) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [creating, hasPending]);
   const run = async (action: () => Promise<void>) => {
     if (mutationLock.current) return;
-    mutationLock.current = true;
-    setBusy(true);
-    setError("");
-    try {
-      await action();
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Opération interrompue. Réessayez.",
-      );
-    } finally {
-      mutationLock.current = false;
-      setBusy(false);
-    }
+    mutationLock.current = true; setBusy(true); setError(""); setNotice("");
+    try { await action(); }
+    catch (e) { setError(e instanceof Error ? e.message : "Opération interrompue. Réessayez."); }
+    finally { mutationLock.current = false; setBusy(false); }
   };
   const refresh = async () => {
-    const current = readVersion.current;
-    const rows = await rpc<Mission[]>("operator_list_deliveries", {
-      p_location_id: site,
-    });
-    if (current === readVersion.current) setMissions(rows);
+    const current = readVersion.current, request = ++latestRead.current;
+    try {
+      const rows = await rpc<Mission[]>("operator_list_deliveries", { p_location_id: site });
+      if (current === readVersion.current && request === latestRead.current) { setMissions(rows); setMissionsLoading(false); setReadError(""); setLastUpdated(new Date()); }
+    } catch { if (current === readVersion.current && request === latestRead.current) setReadError("La liste n’a pas pu être actualisée. Réessayez pour consulter son état récent."); }
   };
   const update = (id: string, patch: Partial<Parcel>) =>
     setParcels((items) =>
@@ -275,8 +272,6 @@ export default function OperationsApp() {
               p.fee === "" ||
               !Number.isInteger(Number(p.fee)) ||
               Number(p.fee) < 0 ||
-              !Number.isInteger(Number(p.cash)) ||
-              Number(p.cash) < 0 ||
               Number(p.weight) <= 0,
           )
         )
@@ -298,7 +293,7 @@ export default function OperationsApp() {
               description: p.description,
               weight_grams: Number(p.weight),
               courier_fee: Number(p.fee),
-              cash_to_collect: Number(p.cash),
+              cash_to_collect: 0,
               ready,
               ready_at: ready
                 ? new Date().toISOString()
@@ -318,6 +313,8 @@ export default function OperationsApp() {
           JSON.stringify(pending.current),
         );
       }
+      const pendingParcels = pending.current?.payload.parcels as { cash_to_collect?: number }[] | undefined;
+      if (pendingParcels?.some(p => Number(p.cash_to_collect || 0) !== 0)) throw Error("Cette ancienne demande comporte un encaissement de produit. Contactez l’équipe Yolo avant de la reprendre.");
       let result: {
         deliveries: { delivery_id: string; recipient_pin?: string }[];
       };
@@ -342,6 +339,7 @@ export default function OperationsApp() {
       }
       rememberPending(null);
       sessionStorage.removeItem("yolo.pending-batch." + userId);
+      setNotice("Votre demande de livraison a bien été enregistrée.");
       setProofs(result.deliveries);
       setParcels([blankParcel()]);
       setReference("");
@@ -349,8 +347,9 @@ export default function OperationsApp() {
       await refresh();
     });
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) { rememberPending(null); return; }
     try {
+      rememberPending(null);
       const raw = sessionStorage.getItem("yolo.pending-batch." + userId);
       if (raw) {
         rememberPending(JSON.parse(raw));
@@ -366,7 +365,7 @@ export default function OperationsApp() {
   }, [userId]);
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b bg-card">
+      {session && !recovery && <header className="border-b bg-card">
         <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
           <a href="/" className="flex flex-col items-center">
             <img src={logo} alt="Yolo" className="w-24" />
@@ -383,7 +382,8 @@ export default function OperationsApp() {
                   void run(async () => {
                     if (userId)
                       sessionStorage.removeItem("yolo.pending-batch." + userId);
-                    await supabase!.auth.signOut();
+                    const { error } = await supabase!.auth.signOut();
+                    if (error) throw Error("La déconnexion n’a pas abouti. Réessayez.");
                   })
                 }
               >
@@ -393,24 +393,26 @@ export default function OperationsApp() {
             )}
           </div>
         </div>
-      </header>
+      </header>}
       <main
         className={
-          session
-            ? "business-main-root"
-            : "max-w-6xl mx-auto p-5 md:p-9 flex flex-col gap-6"
+          session && !recovery ? "business-main-root" : ""
         }
       >
         {error && (
           <div
             role="alert"
+            ref={errorPanel}
+            tabIndex={-1}
             className="border border-destructive rounded-xl p-4 text-sm"
           >
             {error}
           </div>
         )}
+        {session && !recovery && notice && <div className="bw-action-feedback" role="status"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Fermer la confirmation"><X size={16} /></button></div>}
+        {session && !recovery && (offline || readError) && <div className="bw-read-warning" role="status"><span>{offline ? "Vous êtes hors connexion. Vos données restent affichées ; reconnectez-vous pour valider une action." : readError}</span><button disabled={offline || busy} onClick={() => void run(refresh)}>Réessayer</button></div>}
         {checking ? (
-          <p role="status">Connexion à votre espace…</p>
+          <div className="app-loading" role="progressbar" aria-label="Vérification de la connexion"><span /></div>
         ) : !supabase ? (
           <div className="max-w-xl border rounded-2xl bg-card p-8">
             <h1 className="text-3xl font-bold mb-4">
@@ -421,106 +423,8 @@ export default function OperationsApp() {
               installation.
             </p>
           </div>
-        ) : !session ? (
-          <section className="max-w-md mx-auto w-full py-12">
-            <ShieldCheck className="size-9 mb-5" />
-            <h1 className="text-4xl font-bold">
-              Chaque colis.
-              <br />
-              Au bon endroit.
-            </h1>
-            <p className="text-muted-foreground mt-4 mb-8">
-              Connectez-vous avec le compte autorisé pour votre point de
-              retrait.
-            </p>
-            <form
-              className="flex flex-col gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void run(async () => {
-                  if (registering) {
-                    const { error: failure } = await supabase!.auth.signUp({
-                      email: email.trim(),
-                      password,
-                      options: {
-                        emailRedirectTo:
-                          window.location.origin +
-                          "/invitation?invitation=" +
-                          encodeURIComponent(invitationToken),
-                      },
-                    });
-                    if (failure) throw Error(failure.message);
-                    setAuthNotice(
-                      "Vérifiez votre messagerie pour confirmer votre adresse, puis ouvrez à nouveau votre invitation.",
-                    );
-                    setPassword("");
-                    return;
-                  }
-                  const { error: failure } =
-                    await supabase!.auth.signInWithPassword({
-                      email: email.trim(),
-                      password,
-                    });
-                  if (failure)
-                    throw Error(
-                      "Connexion impossible. Vérifiez vos identifiants.",
-                    );
-                  setPassword("");
-                });
-              }}
-            >
-              <label className="text-sm flex flex-col gap-2">
-                E-mail
-                <Input
-                  type="email"
-                  autoComplete="username"
-                  value={email}
-                  required
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </label>
-              <label className="text-sm flex flex-col gap-2">
-                Mot de passe
-                <Input
-                  type="password"
-                  minLength={registering ? 12 : undefined}
-                  autoComplete={
-                    registering ? "new-password" : "current-password"
-                  }
-                  value={password}
-                  required
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </label>
-              <Button variant="yolo" size="lg" disabled={busy} type="submit">
-                {busy
-                  ? "Veuillez patienter…"
-                  : registering
-                    ? "Créer mon compte"
-                    : "Se connecter"}
-                <ArrowRight data-icon="inline-end" />
-              </Button>
-            </form>
-            {authNotice && (
-              <p role="status" className="mt-4 text-sm">
-                {authNotice}
-              </p>
-            )}
-            {invitationToken && (
-              <button
-                type="button"
-                className="mt-4 text-sm underline"
-                onClick={() => setRegistering(!registering)}
-              >
-                {registering
-                  ? "J’ai déjà un compte"
-                  : "Créer mon compte pour rejoindre l’équipe"}
-              </button>
-            )}
-            <p className="text-xs text-muted-foreground mt-5">
-              L’accès aux points de retrait est accordé par l’équipe Yolo.
-            </p>
-          </section>
+        ) : !session || recovery ? (
+          <AuthPage invitationToken={invitationToken} recovery={recovery && !!session} onRecovered={() => { setRecovery(false); window.history.replaceState(null, "", "/app"); setNotice("Votre mot de passe a été modifié."); }} />
         ) : window.location.pathname === "/invitation" ? (
           <AcceptInvitation
             onAccepted={() => {
@@ -544,8 +448,10 @@ export default function OperationsApp() {
             missions={missions}
             userId={userId!}
             email={session.user.email || "Mon compte"}
-            locked={busy || hasPending}
+            locked={busy || hasPending || offline || creating}
             loading={missionsLoading}
+            lastUpdated={lastUpdated}
+            readFailed={!!readError}
             onCreate={() => setCreating(true)}
           >
             <div className="flex flex-wrap gap-4 items-center justify-between">
@@ -558,11 +464,11 @@ export default function OperationsApp() {
               <Button
                 variant="yolo"
                 size="lg"
-                disabled={!sites.find((s) => s.id === site)?.active || busy}
+                disabled={!sites.find((s) => s.id === site)?.active || busy || offline || hasPending}
                 onClick={() => setCreating((v) => !v)}
               >
                 <Plus data-icon="inline-start" />
-                Nouvelle demande
+                {creating ? "Fermer le formulaire" : "Nouvelle demande"}
               </Button>
             </div>
 
@@ -573,7 +479,7 @@ export default function OperationsApp() {
               </p>
             )}
             {hasPending && (
-              <Button disabled={busy} onClick={() => void confirm()}>
+              <Button disabled={busy || offline} onClick={() => void confirm()}>
                 Vérifier la demande en attente
               </Button>
             )}
@@ -683,12 +589,6 @@ export default function OperationsApp() {
                                 type: "number",
                               },
                               {
-                                key: "cash",
-                                label:
-                                  "Espèces à collecter pour ce colis (FCFA)",
-                                type: "number",
-                              },
-                              {
                                 key: "fee",
                                 label: "Rémunération livreur autorisée (FCFA)",
                                 type: "number",
@@ -734,7 +634,7 @@ export default function OperationsApp() {
                 <Button
                   variant="yolo"
                   size="lg"
-                  disabled={busy}
+                  disabled={busy || offline}
                   onClick={() => void confirm()}
                 >
                   {busy
@@ -755,14 +655,14 @@ export default function OperationsApp() {
                   </h2>
                   <Button
                     variant="outline"
-                    disabled={busy}
+                    disabled={busy || offline}
                     onClick={() => void run(refresh)}
                   >
                     <RefreshCw />
                     Actualiser
                   </Button>
                 </div>
-                {missions.length === 0 ? (
+                {missionsLoading ? <p role="status">Actualisation des livraisons…</p> : readError && !lastUpdated ? <p className="bw-empty">Les livraisons ne sont pas disponibles pour le moment.</p> : missions.length === 0 ? (
                   <p className="p-8 border rounded-xl text-muted-foreground">
                     Aucune livraison pour ce point de retrait.
                   </p>
@@ -790,7 +690,7 @@ export default function OperationsApp() {
                         {!["delivered", "cancelled"].includes(m.status) && (
                           <Button
                             variant="outline"
-                            disabled={busy}
+                            disabled={busy || offline}
                             onClick={() =>
                               void run(async () => {
                                 const reason = window.prompt(
@@ -805,6 +705,7 @@ export default function OperationsApp() {
                                   p_reason: reason,
                                 });
                                 setProofs([proof]);
+                                setNotice("Le nouveau code est disponible. L’ancien a été invalidé.");
                               })
                             }
                           >
@@ -816,7 +717,7 @@ export default function OperationsApp() {
                         ) && (
                           <Button
                             variant="outline"
-                            disabled={busy}
+                            disabled={busy || offline}
                             onClick={() =>
                               void run(async () => {
                                 await rpc("operator_set_ready", {
@@ -824,6 +725,7 @@ export default function OperationsApp() {
                                   p_ready: true,
                                   p_ready_at: new Date().toISOString(),
                                 });
+                                setNotice("Le colis est prêt pour le retrait.");
                                 await refresh();
                               })
                             }
@@ -834,7 +736,7 @@ export default function OperationsApp() {
                         {m.status === "at_pickup" && (
                           <>
                             <Button
-                              disabled={busy}
+                              disabled={busy || offline}
                               onClick={() =>
                                 void run(async () => {
                                   const c = await rpc<{
@@ -845,6 +747,7 @@ export default function OperationsApp() {
                                   });
                                   setNow(Date.now());
                                   setChallenge({ id: m.id, ...c });
+                                  setNotice("Le code de retrait est affiché sur la livraison concernée.");
                                 })
                               }
                             >
@@ -866,6 +769,7 @@ export default function OperationsApp() {
                                     p_request_id: crypto.randomUUID(),
                                   });
                                   setChallenge(null);
+                                  setNotice("La remise du colis au livreur est confirmée.");
                                   await refresh();
                                 })
                               }
