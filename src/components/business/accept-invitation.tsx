@@ -19,7 +19,7 @@ export function AcceptInvitation({ onAccepted }: { onAccepted: () => void }) {
     <section className="bw-card bw-accept">
       <h1>Rejoindre votre équipe</h1>
       <p>
-        Cette invitation donne accès aux livraisons et factures du point de
+        Cette invitation donne accès aux livraisons du point de
         retrait concerné.
       </p>
       {error && (

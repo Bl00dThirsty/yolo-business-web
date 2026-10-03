@@ -59,7 +59,9 @@ export function BusinessTeam({
         );
         setEmail("");
       }
-      setTeam(await businessRequest<Team>(locationId, "team"));
+      if (!result.token) setNotice(action === "invite_revoke" ? "L’invitation a été révoquée." : action === "member_remove" ? "L’accès du collaborateur a été retiré." : "Le rôle du collaborateur a été mis à jour.");
+      try { setTeam(await businessRequest<Team>(locationId, "team")); }
+      catch { setError("La modification est enregistrée, mais la liste n’a pas pu être actualisée. Rouvrez cette page pour la vérifier."); }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Veuillez réessayer.");
     } finally {
@@ -68,7 +70,7 @@ export function BusinessTeam({
     }
   }
   return (
-    <section>
+    <section aria-busy={busy}>
       <div className="bw-page-heading">
         <div>
           <span className="bw-kicker">TRAVAILLER ENSEMBLE</span>
@@ -113,7 +115,7 @@ export function BusinessTeam({
                 Inviter un collaborateur
               </button>
               <p className="bw-hint">
-                Accès aux livraisons et factures de ce point. L’invitation
+                Accès aux livraisons de ce point. L’invitation
                 expire après 7 jours et doit être acceptée avec cette adresse
                 e-mail vérifiée. Elle n’est pas envoyée automatiquement.
               </p>

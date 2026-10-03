@@ -23,7 +23,7 @@ export const faq = [
   ],
   [
     "Comment accéder à mon espace ?",
-    "Votre espace est accessible après activation de votre compte. Vous y retrouvez vos livraisons, votre équipe et vos factures clients.",
+    "Votre espace est accessible après activation de votre compte. Vous y retrouvez vos livraisons et votre équipe.",
   ],
 ];
 export const steps = [
@@ -267,7 +267,7 @@ export const pages: Record<
     sections: [
       [
         "L’espace entreprise",
-        "L’espace connecté permet de gérer vos livraisons et vos factures clients. Vérifiez les coordonnées et les montants avant de confirmer une action.",
+        "L’espace connecté permet de gérer vos livraisons. Vérifiez les coordonnées et les montants avant de confirmer une action.",
       ],
       [
         "La plateforme",

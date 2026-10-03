@@ -352,7 +352,7 @@ function Home() {
           <div className="m-dashboard-title"><h3>Votre quotidien, simplifié.</h3></div>
           <div className="m-rows">
             <a href="/app"><div><strong>Vos livraisons</strong><p>Préparer les colis et suivre leur prise en charge.</p></div><Arrow /></a>
-            <a href="/app"><div><strong>Vos factures clients</strong><p>Créer, imprimer et partager sur WhatsApp.</p></div><Arrow /></a>
+            <a href="/app"><div><strong>Votre historique</strong><p>Retrouver les étapes de vos livraisons.</p></div><Arrow /></a>
             <a href="/app"><div><strong>Votre équipe</strong><p>Retrouver les accès de vos collaborateurs.</p></div><Arrow /></a>
           </div>
         </div>
