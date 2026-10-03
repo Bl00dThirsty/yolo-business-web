@@ -91,7 +91,7 @@ export const SEO_PAGES_META: Record<string, PageMetadata> = {
   "/app": {
     title: "Votre espace entreprise Yolo Business",
     description:
-      "Accédez à vos livraisons, vos factures clients et votre équipe depuis votre espace Yolo Business.",
+      "Accédez à vos livraisons et votre équipe depuis votre espace Yolo Business.",
   },
   "/mentions-legales": {
     title: "Mentions Légales. Yolo Business",
