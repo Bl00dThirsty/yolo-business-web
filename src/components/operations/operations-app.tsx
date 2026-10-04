@@ -1,3 +1,6 @@
+import { Toaster } from "sonner";
+import { useDeferredCancellation } from "./deferred-cancellation";
+import { DeliveryBrowser } from "./delivery-browser";
 import { SuccessAnimation } from "@/components/ui/success-animation";
 import { EditDelivery, type EditableDelivery } from "./edit-delivery";
 import { WorkspaceHeader } from "@/components/business/workspace-header";
@@ -8,13 +11,7 @@ import { BusinessWorkspace } from "@/components/business/business-workspace";
 import { AcceptInvitation } from "@/components/business/accept-invitation";
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import {
-  Plus,
-  Trash2,
-  RefreshCw,
-  Package,
-  X,
-} from "lucide-react";
+import { Plus, Trash2, RefreshCw, Package, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,15 +65,6 @@ const blankParcel = (): Parcel => ({
   fee: "",
   point: null,
 });
-const labels: Record<string, string> = {
-  searching: "Recherche du livreur",
-  assigned: "Livreur en route",
-  at_pickup: "Au retrait",
-  picked_up: "En livraison",
-  at_dropoff: "Chez le destinataire",
-  delivered: "Livrée",
-  cancelled: "Annulée",
-};
 class RpcFailure extends Error {
   constructor(
     message: string,
@@ -106,6 +94,9 @@ export default function OperationsApp() {
       new URLSearchParams(window.location.search).get("reset") === "1" ||
       new URLSearchParams(window.location.hash.slice(1)).get("type") ===
         "recovery",
+  );
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(
+    null,
   );
   const [editingDelivery, setEditingDelivery] =
     useState<EditableDelivery | null>(null);
@@ -168,7 +159,12 @@ export default function OperationsApp() {
     [reference, setReference] = useState(""),
     [ready, setReady] = useState(true);
   const [proofs, setProofs] = useState<
-    { delivery_id: string; recipient_pin?: string; recipient_phone?: string; reference?: string }[]
+    {
+      delivery_id: string;
+      recipient_pin?: string;
+      recipient_phone?: string;
+      reference?: string;
+    }[]
   >([]);
   const [challenge, setChallenge] = useState<{
     id: string;
@@ -463,6 +459,21 @@ export default function OperationsApp() {
       );
     }
   }, [userId]);
+  const cancellation = useDeferredCancellation(
+    userId ?? undefined,
+    async (item) => {
+      await rpc("operator_release_delivery", {
+        p_delivery_id: item.id,
+        p_cancel: true,
+        p_request_id: item.requestId,
+      });
+      setChallenge((current) => (current?.id === item.id ? null : current));
+      setProofs((current) =>
+        current.filter((proof) => proof.delivery_id !== item.id),
+      );
+      await refresh();
+    },
+  );
   return (
     <div className="min-h-screen bg-background text-foreground">
       {session && !recovery && (
@@ -473,7 +484,7 @@ export default function OperationsApp() {
               ? session.user.user_metadata.display_name
               : ""
           }
-          disabled={busy || hasPending}
+          disabled={busy || hasPending || !!cancellation.pendingId}
           onSettings={() => setWorkspaceView("settings")}
           onGuide={() => {
             setWorkspaceView("dashboard");
@@ -585,6 +596,10 @@ export default function OperationsApp() {
             site={site}
             setSite={setSite}
             missions={missions}
+            onOpenDelivery={(id) => {
+              setSelectedDeliveryId(id);
+              setWorkspaceView("deliveries");
+            }}
             userId={userId!}
             email={session.user.email || "Mon compte"}
             locked={busy || hasPending || offline || creating}
@@ -647,10 +662,9 @@ export default function OperationsApp() {
                         const mission = missions.find(
                           (m) => m.id === p.delivery_id,
                         );
-                        const phone = (p.recipient_phone ?? mission?.recipient_phone)?.replace(
-                          /\D/g,
-                          "",
-                        );
+                        const phone = (
+                          p.recipient_phone ?? mission?.recipient_phone
+                        )?.replace(/\D/g, "");
                         return phone && /^2376[0-9]{8}$/.test(phone) ? (
                           <a
                             className="bw-whatsapp-share"
@@ -863,202 +877,192 @@ export default function OperationsApp() {
                     Aucune livraison pour ce point de retrait.
                   </p>
                 ) : (
-                  missions.map((m) => (
-                    <article
-                      key={m.id}
-                      className="border rounded-xl bg-card p-5 flex flex-col gap-3"
-                    >
-                      <div className="flex flex-wrap justify-between gap-3">
-                        <strong>{m.reference}</strong>
-                        <span className="text-sm">
-                          {labels[m.status] ?? m.status}
-                        </span>
-                      </div>
-                      <p className="text-sm">
-                        {m.recipient_name} · {m.dropoff_address}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {m.courier_name
-                          ? `Livreur : ${m.courier_name} · ${m.plate || "Plaque non renseignée"}`
-                          : "Livreur non attribué"}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {m.status === "searching" && (
-                          <Button
-                            variant="outline"
-                            disabled={busy || offline}
-                            onClick={() => setEditingDelivery({ ...m })}
-                          >
-                            Modifier la livraison
-                          </Button>
-                        )}
-                        {["searching", "assigned", "at_pickup"].includes(
-                          m.status,
-                        ) && (
-                          <Button
-                            variant="outline"
-                            disabled={busy || offline}
-                            onClick={() => {
-                              const requestId = crypto.randomUUID();
-                              openAction({
-                                title:
-                                  "Annuler la livraison " + m.reference + " ?",
-                                description:
-                                  "Le colis doit encore être au point de retrait. Cette annulation mettra fin à la recherche ou à l’affectation du livreur.",
-                                confirm: "Annuler la livraison",
-                                destructive: true,
-                                onConfirm: async () => {
-                                  await rpc("operator_release_delivery", {
-                                    p_delivery_id: m.id,
-                                    p_cancel: true,
-                                    p_request_id: requestId,
-                                  });
-                                  setChallenge((current) =>
-                                    current?.id === m.id ? null : current,
-                                  );
-                                  setProofs((current) =>
-                                    current.filter(
-                                      (proof) => proof.delivery_id !== m.id,
-                                    ),
-                                  );
-                                  setNotice(
-                                    "La livraison " +
-                                      m.reference +
-                                      " a été annulée.",
-                                  );
-                                  await refresh();
-                                },
-                              });
-                            }}
-                          >
-                            Annuler la livraison
-                          </Button>
-                        )}
-
-                        {!["delivered", "cancelled"].includes(m.status) && (
-                          <Button
-                            variant="outline"
-                            disabled={busy || offline}
-                            onClick={() =>
-                              openAction({
-                                title: "Réémettre le code destinataire",
-                                description:
-                                  "Vérifiez l’identité du destinataire avant de continuer. L’ancien code sera invalidé.",
-                                confirm: "Créer le nouveau code",
-                                inputLabel: "Motif de réémission",
-                                minLength: 10,
-                                onConfirm: async (reason) => {
-                                  const proof = await rpc<{
-                                    delivery_id: string;
-                                    recipient_pin: string;
-                                  }>("operator_reissue_recipient_code", {
-                                    p_delivery_id: m.id,
-                                    p_reason: reason,
-                                  });
-                                  setProofs([proof]);
-                                  setNotice(
-                                    "Le nouveau code est disponible. L’ancien a été invalidé.",
-                                  );
-                                },
-                              })
-                            }
-                          >
-                            Réémettre le code destinataire
-                          </Button>
-                        )}
-                        {["searching", "assigned", "at_pickup"].includes(
-                          m.status,
-                        ) && (
-                          <Button
-                            variant="outline"
-                            disabled={busy || offline}
-                            onClick={() =>
-                              void run(async () => {
-                                await rpc("operator_set_ready", {
-                                  p_delivery_id: m.id,
-                                  p_ready: true,
-                                  p_ready_at: new Date().toISOString(),
-                                });
-                                setNotice("Le colis est prêt pour le retrait.");
-                                await refresh();
-                              })
-                            }
-                          >
-                            Colis prêt
-                          </Button>
-                        )}
-                        {m.status === "at_pickup" && (
-                          <>
+                  <DeliveryBrowser
+                    deliveries={missions}
+                    pendingId={cancellation.pendingId}
+                    selectedId={selectedDeliveryId}
+                    onSelect={setSelectedDeliveryId}
+                    renderActions={(m) => (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {m.status === "searching" && (
                             <Button
-                              disabled={busy || offline}
+                              variant="outline"
+                              disabled={
+                                busy ||
+                                offline ||
+                                cancellation.pendingId === m.id
+                              }
+                              onClick={() => {
+                                setSelectedDeliveryId(null);
+                                setEditingDelivery({ ...m });
+                              }}
+                            >
+                              Modifier la livraison
+                            </Button>
+                          )}
+                          {["searching", "assigned", "at_pickup"].includes(
+                            m.status,
+                          ) && (
+                            <Button
+                              variant="outline"
+                              disabled={
+                                busy || offline || !!cancellation.pendingId
+                              }
+                              onClick={() => {
+                                setNotice("");
+                                setSelectedDeliveryId(null);
+                                cancellation.schedule(m.id, m.reference);
+                              }}
+                            >
+                              Annuler la livraison
+                            </Button>
+                          )}
+
+                          {!["delivered", "cancelled"].includes(m.status) && (
+                            <Button
+                              variant="outline"
+                              disabled={
+                                busy ||
+                                offline ||
+                                cancellation.pendingId === m.id
+                              }
+                              onClick={() => (
+                                setSelectedDeliveryId(null),
+                                openAction({
+                                  title: "Réémettre le code destinataire",
+                                  description:
+                                    "Vérifiez l’identité du destinataire avant de continuer. L’ancien code sera invalidé.",
+                                  confirm: "Créer le nouveau code",
+                                  inputLabel: "Motif de réémission",
+                                  minLength: 10,
+                                  onConfirm: async (reason) => {
+                                    const proof = await rpc<{
+                                      delivery_id: string;
+                                      recipient_pin: string;
+                                    }>("operator_reissue_recipient_code", {
+                                      p_delivery_id: m.id,
+                                      p_reason: reason,
+                                    });
+                                    setProofs([proof]);
+                                    setNotice(
+                                      "Le nouveau code est disponible. L’ancien a été invalidé.",
+                                    );
+                                  },
+                                })
+                              )}
+                            >
+                              Réémettre le code destinataire
+                            </Button>
+                          )}
+                          {["searching", "assigned", "at_pickup"].includes(
+                            m.status,
+                          ) && (
+                            <Button
+                              variant="outline"
+                              disabled={
+                                busy ||
+                                offline ||
+                                cancellation.pendingId === m.id
+                              }
                               onClick={() =>
                                 void run(async () => {
-                                  const c = await rpc<{
-                                    pin: string;
-                                    expires_at: string;
-                                  }>("operator_issue_pickup", {
+                                  await rpc("operator_set_ready", {
                                     p_delivery_id: m.id,
+                                    p_ready: true,
+                                    p_ready_at: new Date().toISOString(),
                                   });
-                                  setNow(Date.now());
-                                  setChallenge({ id: m.id, ...c });
                                   setNotice(
-                                    "Le code de retrait est affiché sur la livraison concernée.",
+                                    "Le colis est prêt pour le retrait.",
                                   );
+                                  await refresh();
                                 })
                               }
                             >
-                              Afficher le code de retrait
+                              Colis prêt
                             </Button>
-                            <Button
-                              variant="yolo"
-                              disabled={
-                                busy || offline || !m.pickup_acknowledged_at
-                              }
-                              onClick={() => {
-                                const requestId = crypto.randomUUID();
-                                openAction({
-                                  title: "Confirmer la remise du colis",
-                                  description:
-                                    "Avez-vous vérifié le livreur attribué et remis physiquement ce colis ?",
-                                  confirm: "Confirmer la remise",
-                                  onConfirm: async () => {
-                                    await rpc("operator_confirm_pickup", {
+                          )}
+                          {m.status === "at_pickup" && (
+                            <>
+                              <Button
+                                disabled={
+                                  busy ||
+                                  offline ||
+                                  cancellation.pendingId === m.id
+                                }
+                                onClick={() =>
+                                  void run(async () => {
+                                    const c = await rpc<{
+                                      pin: string;
+                                      expires_at: string;
+                                    }>("operator_issue_pickup", {
                                       p_delivery_id: m.id,
-                                      p_request_id: requestId,
                                     });
-                                    setChallenge(null);
+                                    setNow(Date.now());
+                                    setChallenge({ id: m.id, ...c });
                                     setNotice(
-                                      "La remise du colis au livreur est confirmée.",
+                                      "Le code de retrait est affiché sur la livraison concernée.",
                                     );
-                                    await refresh();
-                                  },
-                                });
-                              }}
-                            >
-                              Confirmer la remise physique
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                      {challenge?.id === m.id && (
-                        <div className="bg-muted rounded-lg p-4">
-                          <p className="text-xs">
-                            À saisir dans l’application du livreur attribué
-                          </p>
-                          <p className="font-mono text-3xl tracking-widest my-2">
-                            {new Date(challenge.expires_at).getTime() > now
-                              ? challenge.pin
-                              : "Expiré"}
-                          </p>
-                          <p className="text-xs">
-                            {m.pickup_acknowledged_at
-                              ? "Code validé par le livreur. Confirmez après remise du colis."
-                              : "En attente de validation du livreur."}
-                          </p>
+                                  })
+                                }
+                              >
+                                Afficher le code de retrait
+                              </Button>
+                              <Button
+                                variant="yolo"
+                                disabled={
+                                  busy ||
+                                  offline ||
+                                  cancellation.pendingId === m.id ||
+                                  !m.pickup_acknowledged_at
+                                }
+                                onClick={() => {
+                                  const requestId = crypto.randomUUID();
+                                  setSelectedDeliveryId(null);
+                                  openAction({
+                                    title: "Confirmer la remise du colis",
+                                    description:
+                                      "Avez-vous vérifié le livreur attribué et remis physiquement ce colis ?",
+                                    confirm: "Confirmer la remise",
+                                    onConfirm: async () => {
+                                      await rpc("operator_confirm_pickup", {
+                                        p_delivery_id: m.id,
+                                        p_request_id: requestId,
+                                      });
+                                      setChallenge(null);
+                                      setNotice(
+                                        "La remise du colis au livreur est confirmée.",
+                                      );
+                                      await refresh();
+                                    },
+                                  });
+                                }}
+                              >
+                                Confirmer la remise physique
+                              </Button>
+                            </>
+                          )}
                         </div>
-                      )}
-                    </article>
-                  ))
+                        {challenge?.id === m.id && (
+                          <div className="bg-muted rounded-lg p-4">
+                            <p className="text-xs">
+                              À saisir dans l’application du livreur attribué
+                            </p>
+                            <p className="font-mono text-3xl tracking-widest my-2">
+                              {new Date(challenge.expires_at).getTime() > now
+                                ? challenge.pin
+                                : "Expiré"}
+                            </p>
+                            <p className="text-xs">
+                              {m.pickup_acknowledged_at
+                                ? "Code validé par le livreur. Confirmez après remise du colis."
+                                : "En attente de validation du livreur."}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  />
                 )}
               </section>
             )}
@@ -1080,7 +1084,8 @@ export default function OperationsApp() {
                   {
                     delivery_id: result.delivery_id,
                     recipient_pin: result.recipient_pin,
-                  recipient_phone: result.recipient_phone, reference: result.reference,
+                    recipient_phone: result.recipient_phone,
+                    reference: result.reference,
                   },
                 ]);
             }
@@ -1093,6 +1098,7 @@ export default function OperationsApp() {
           }}
         />
       )}
+      <Toaster position="bottom-right" />
       {popup}
     </div>
   );

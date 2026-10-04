@@ -1,7 +1,25 @@
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 import { GettingStarted } from "./getting-started";
 import { ContextHelp } from "@/components/ui/context-help";
 import "@fontsource-variable/manrope";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import {
   LayoutDashboard,
@@ -11,8 +29,6 @@ import {
   Settings,
   Plus,
   ArrowRight,
-  Menu,
-  X,
 } from "lucide-react";
 import { BusinessTeam } from "./team-view";
 import "./business.css";
@@ -46,7 +62,16 @@ const navigation = [
   ["team", "Équipe", Users],
   ["settings", "Paramètres", Settings],
 ] as const;
-export function BusinessWorkspace({
+export function BusinessWorkspace(
+  props: Parameters<typeof WorkspaceContent>[0],
+) {
+  return (
+    <SidebarProvider defaultOpen={!matchMedia("(max-width:760px)").matches}>
+      <WorkspaceContent {...props} />
+    </SidebarProvider>
+  );
+}
+function WorkspaceContent({
   view,
   onNavigate,
   guideRequest,
@@ -60,6 +85,7 @@ export function BusinessWorkspace({
   email,
   locked,
   onCreate,
+  onOpenDelivery,
   loading,
   lastUpdated,
   readFailed,
@@ -77,11 +103,12 @@ export function BusinessWorkspace({
   email: string;
   locked: boolean;
   onCreate: () => void;
+  onOpenDelivery: (id: string) => void;
   loading: boolean;
   lastUpdated: Date | null;
   readFailed: boolean;
 }) {
-  const [menu, setMenu] = useState(false);
+  const { open, setOpen } = useSidebar();
   const viewHeading = useRef<HTMLDivElement>(null);
   const firstView = useRef(true);
   useEffect(() => {
@@ -97,40 +124,45 @@ export function BusinessWorkspace({
   ).length;
   function navigate(next: string) {
     onNavigate(next);
-    setMenu(false);
+    if (matchMedia("(max-width:760px)").matches) setOpen(false);
   }
   function create() {
     navigate("deliveries");
     onCreate();
   }
   return (
-    <div className="business-workspace">
-      <button
-        className="bw-mobile-menu"
-        aria-expanded={menu}
-        onClick={() => setMenu(!menu)}
-      >
-        {menu ? <X size={18} /> : <Menu size={18} />}Navigation
-      </button>
-      <aside className={`bw-sidebar ${menu ? "is-open" : ""}`}>
+    <div
+      className={"business-workspace" + (!open ? " is-sidebar-collapsed" : "")}
+    >
+      <div className="bw-sidebar-toggle">
+        <SidebarTrigger aria-label="Ouvrir ou fermer la navigation" />
+        <span>Navigation</span>
+      </div>
+      <Sidebar className="bw-sidebar">
         <span className="bw-sidebar-label">ESPACE ENTREPRISE</span>
-        <nav aria-label="Espace entreprise">
-          {navigation.map(([id, title, Icon]) => (
-            <button
-              key={id}
-              onClick={() => navigate(id)}
-              aria-current={view === id ? "page" : undefined}
-            >
-              <Icon size={18} />
-              {title}
-            </button>
-          ))}
-        </nav>
+        <SidebarContent>
+          <nav aria-label="Espace entreprise">
+            <SidebarMenu>
+              {navigation.map(([id, title, Icon]) => (
+                <SidebarMenuItem key={id}>
+                  <SidebarMenuButton
+                    isActive={view === id}
+                    onClick={() => navigate(id)}
+                    aria-current={view === id ? "page" : undefined}
+                  >
+                    <Icon size={18} />
+                    {title}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </nav>
+        </SidebarContent>
         <div className="bw-sidebar-user">
           <span>{email}</span>
           <small>Votre espace Yolo Business</small>
         </div>
-      </aside>
+      </Sidebar>
       <div className="bw-main" ref={viewHeading} tabIndex={-1}>
         <div className="bw-workspace-bar">
           <label>
@@ -260,32 +292,32 @@ export function BusinessWorkspace({
                   <p>Vos livraisons apparaîtront ici dès leur création.</p>
                 </div>
               ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Référence</th>
-                      <th>Destinataire</th>
-                      <th>Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Référence</TableHead>
+                      <TableHead>Destinataire</TableHead>
+                      <TableHead>Statut</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {missions.slice(0, 6).map((m) => (
-                      <tr key={m.id}>
-                        <td>
-                          <button onClick={() => navigate("deliveries")}>
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          <button onClick={() => onOpenDelivery(m.id)}>
                             {m.reference}
                           </button>
-                        </td>
-                        <td>{m.recipient_name}</td>
-                        <td>
+                        </TableCell>
+                        <TableCell>{m.recipient_name}</TableCell>
+                        <TableCell>
                           <span className="bw-badge">
                             {statuses[m.status] || m.status}
                           </span>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </div>
             <div className="bw-card bw-quick-actions">
