@@ -14,7 +14,7 @@
     --popover-foreground: 230 12% 8%;
 
     --primary: 230 12% 8%;
-    --primary-foreground: 81 88% 70%; /* #CAF76F Yolo Lime */
+    --primary-foreground: 0 0% 100%; /* White on dark buttons */
 
     --secondary: 60 4% 94%;
     --secondary-foreground: 230 12% 8%;
@@ -35,7 +35,7 @@
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 230 12% 8%;
     --sidebar-primary: 230 12% 8%;
-    --sidebar-primary-foreground: 81 88% 70%;
+    --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 81 88% 92%;
     --sidebar-accent-foreground: 230 12% 8%;
     --sidebar-border: 75 10% 91%;

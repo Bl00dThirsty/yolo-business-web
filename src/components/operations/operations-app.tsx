@@ -1,3 +1,4 @@
+import { useActionPopup } from "@/components/ui/action-popup";
 import { AuthPage } from "./auth-page";
 import { BusinessWorkspace } from "@/components/business/business-workspace";
 import { AcceptInvitation } from "@/components/business/accept-invitation";
@@ -89,22 +90,35 @@ async function rpc<T>(
   return data as T;
 }
 export default function OperationsApp() {
+  const { openAction, popup } = useActionPopup();
   const [session, setSession] = useState<Session | null>(null),
     [checking, setChecking] = useState(!!supabase);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [recovery, setRecovery] = useState(() => new URLSearchParams(window.location.search).get("reset") === "1" || new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery");
+  const [recovery, setRecovery] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("reset") === "1" ||
+      new URLSearchParams(window.location.hash.slice(1)).get("type") ===
+        "recovery",
+  );
   const [notice, setNotice] = useState("");
   const [readError, setReadError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const latestRead = useRef(0);
   const errorPanel = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (error) errorPanel.current?.focus(); }, [error]);
   useEffect(() => {
-    const online = () => setOffline(false), offline = () => setOffline(true);
-    window.addEventListener("online", online); window.addEventListener("offline", offline);
-    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+    if (error) errorPanel.current?.focus();
+  }, [error]);
+  useEffect(() => {
+    const online = () => setOffline(false),
+      offline = () => setOffline(true);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
   }, []);
   const [invitationToken] = useState(() => {
     if (window.location.pathname !== "/invitation") return "";
@@ -162,18 +176,32 @@ export default function OperationsApp() {
   useEffect(() => {
     if (!supabase) return;
     let alive = true;
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (error) throw error;
-      if (alive) {
-        setSession(data.session);
-        setChecking(false);
-      }
-    }).catch(() => { if (alive) { setChecking(false); setError("Votre session n’a pas pu être vérifiée. Rechargez la page."); } });
+    void supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (alive) {
+          setSession(data.session);
+          setChecking(false);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setChecking(false);
+          setError(
+            "Votre session n’a pas pu être vérifiée. Rechargez la page.",
+          );
+        }
+      });
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       setChecking(false);
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
-      if (event === "SIGNED_OUT") { setChallenge(null); setProofs([]); setNotice(""); }
+      if (event === "SIGNED_OUT") {
+        setChallenge(null);
+        setProofs([]);
+        setNotice("");
+      }
     });
     return () => {
       alive = false;
@@ -194,7 +222,13 @@ export default function OperationsApp() {
         if (active) {
           setIsAdmin(data.is_admin);
           setSites(data.locations);
-          setSite(data.locations.find(l => l.id === pending.current?.payload.location_id)?.id ?? data.locations[0]?.id ?? "");
+          setSite(
+            data.locations.find(
+              (l) => l.id === pending.current?.payload.location_id,
+            )?.id ??
+              data.locations[0]?.id ??
+              "",
+          );
         }
       })
       .catch((e) => {
@@ -206,25 +240,42 @@ export default function OperationsApp() {
   }, [userId, workspaceRevision]);
   useEffect(() => {
     const current = ++readVersion.current;
-    setMissions([]); setLastUpdated(null); setReadError(""); setChallenge(null);
-    if (!site || !userId) { setMissionsLoading(false); return; }
+    setMissions([]);
+    setLastUpdated(null);
+    setReadError("");
+    setChallenge(null);
+    if (!site || !userId) {
+      setMissionsLoading(false);
+      return;
+    }
     setMissionsLoading(true);
     const poll = async () => {
       const request = ++latestRead.current;
       try {
-        const rows = await rpc<Mission[]>("operator_list_deliveries", { p_location_id: site });
+        const rows = await rpc<Mission[]>("operator_list_deliveries", {
+          p_location_id: site,
+        });
         if (current === readVersion.current && request === latestRead.current) {
-          setMissions(rows); setMissionsLoading(false); setReadError(""); setLastUpdated(new Date());
+          setMissions(rows);
+          setMissionsLoading(false);
+          setReadError("");
+          setLastUpdated(new Date());
         }
       } catch {
         if (current === readVersion.current && request === latestRead.current) {
-          setReadError("Actualisation impossible. Les informations affichées peuvent être anciennes."); setMissionsLoading(false);
+          setReadError(
+            "Actualisation impossible. Les informations affichées peuvent être anciennes.",
+          );
+          setMissionsLoading(false);
         }
       }
     };
     void poll();
     const timer = setInterval(() => void poll(), 15000);
-    return () => { readVersion.current++; clearInterval(timer); };
+    return () => {
+      readVersion.current++;
+      clearInterval(timer);
+    };
   }, [site, userId]);
   useEffect(() => {
     if (!challenge) return;
@@ -233,23 +284,48 @@ export default function OperationsApp() {
   }, [challenge]);
   useEffect(() => {
     if (!creating && !hasPending) return;
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [creating, hasPending]);
   const run = async (action: () => Promise<void>) => {
     if (mutationLock.current) return;
-    mutationLock.current = true; setBusy(true); setError(""); setNotice("");
-    try { await action(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Opération interrompue. Réessayez."); }
-    finally { mutationLock.current = false; setBusy(false); }
+    mutationLock.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Opération interrompue. Réessayez.",
+      );
+    } finally {
+      mutationLock.current = false;
+      setBusy(false);
+    }
   };
   const refresh = async () => {
-    const current = readVersion.current, request = ++latestRead.current;
+    const current = readVersion.current,
+      request = ++latestRead.current;
     try {
-      const rows = await rpc<Mission[]>("operator_list_deliveries", { p_location_id: site });
-      if (current === readVersion.current && request === latestRead.current) { setMissions(rows); setMissionsLoading(false); setReadError(""); setLastUpdated(new Date()); }
-    } catch { if (current === readVersion.current && request === latestRead.current) setReadError("La liste n’a pas pu être actualisée. Réessayez pour consulter son état récent."); }
+      const rows = await rpc<Mission[]>("operator_list_deliveries", {
+        p_location_id: site,
+      });
+      if (current === readVersion.current && request === latestRead.current) {
+        setMissions(rows);
+        setMissionsLoading(false);
+        setReadError("");
+        setLastUpdated(new Date());
+      }
+    } catch {
+      if (current === readVersion.current && request === latestRead.current)
+        setReadError(
+          "La liste n’a pas pu être actualisée. Réessayez pour consulter son état récent.",
+        );
+    }
   };
   const update = (id: string, patch: Partial<Parcel>) =>
     setParcels((items) =>
@@ -313,8 +389,12 @@ export default function OperationsApp() {
           JSON.stringify(pending.current),
         );
       }
-      const pendingParcels = pending.current?.payload.parcels as { cash_to_collect?: number }[] | undefined;
-      if (pendingParcels?.some(p => Number(p.cash_to_collect || 0) !== 0)) throw Error("Cette ancienne demande comporte un encaissement de produit. Contactez l’équipe Yolo avant de la reprendre.");
+      const pendingParcels = pending.current?.payload.parcels as
+        { cash_to_collect?: number }[] | undefined;
+      if (pendingParcels?.some((p) => Number(p.cash_to_collect || 0) !== 0))
+        throw Error(
+          "Cette ancienne demande comporte un encaissement de produit. Contactez l’équipe Yolo avant de la reprendre.",
+        );
       let result: {
         deliveries: { delivery_id: string; recipient_pin?: string }[];
       };
@@ -347,7 +427,10 @@ export default function OperationsApp() {
       await refresh();
     });
   useEffect(() => {
-    if (!userId) { rememberPending(null); return; }
+    if (!userId) {
+      rememberPending(null);
+      return;
+    }
     try {
       rememberPending(null);
       const raw = sessionStorage.getItem("yolo.pending-batch." + userId);
@@ -365,40 +448,43 @@ export default function OperationsApp() {
   }, [userId]);
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {session && !recovery && <header className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
-          <a href="/" className="flex flex-col items-center">
-            <img src={logo} alt="Yolo" className="w-24" />
-            <span className="text-[10px] tracking-[.28em] font-semibold mt-1">
-              BUSINESS
-            </span>
-          </a>
-          <div className="flex gap-3 items-center">
-            {session && (
-              <Button
-                variant="outline"
-                disabled={busy || hasPending}
-                onClick={() =>
-                  void run(async () => {
-                    if (userId)
-                      sessionStorage.removeItem("yolo.pending-batch." + userId);
-                    const { error } = await supabase!.auth.signOut();
-                    if (error) throw Error("La déconnexion n’a pas abouti. Réessayez.");
-                  })
-                }
-              >
-                <LogOut data-icon="inline-start" />
-                Déconnexion
-              </Button>
-            )}
+      {session && !recovery && (
+        <header className="border-b bg-card">
+          <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
+            <a href="/" className="flex flex-col items-center">
+              <img src={logo} alt="Yolo" className="w-24" />
+              <span className="text-[10px] tracking-[.28em] font-semibold mt-1">
+                BUSINESS
+              </span>
+            </a>
+            <div className="flex gap-3 items-center">
+              {session && (
+                <Button
+                  variant="outline"
+                  disabled={busy || hasPending}
+                  onClick={() =>
+                    void run(async () => {
+                      if (userId)
+                        sessionStorage.removeItem(
+                          "yolo.pending-batch." + userId,
+                        );
+                      const { error } = await supabase!.auth.signOut();
+                      if (error)
+                        throw Error(
+                          "La déconnexion n’a pas abouti. Réessayez.",
+                        );
+                    })
+                  }
+                >
+                  <LogOut data-icon="inline-start" />
+                  Déconnexion
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      </header>}
-      <main
-        className={
-          session && !recovery ? "business-main-root" : ""
-        }
-      >
+        </header>
+      )}
+      <main className={session && !recovery ? "business-main-root" : ""}>
         {error && (
           <div
             role="alert"
@@ -409,10 +495,41 @@ export default function OperationsApp() {
             {error}
           </div>
         )}
-        {session && !recovery && notice && <div className="bw-action-feedback" role="status"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Fermer la confirmation"><X size={16} /></button></div>}
-        {session && !recovery && (offline || readError) && <div className="bw-read-warning" role="status"><span>{offline ? "Vous êtes hors connexion. Vos données restent affichées ; reconnectez-vous pour valider une action." : readError}</span><button disabled={offline || busy} onClick={() => void run(refresh)}>Réessayer</button></div>}
+        {session && !recovery && notice && (
+          <div className="bw-action-feedback" role="status">
+            <CheckCircle2 size={18} />
+            <span>{notice}</span>
+            <button
+              onClick={() => setNotice("")}
+              aria-label="Fermer la confirmation"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {session && !recovery && (offline || readError) && (
+          <div className="bw-read-warning" role="status">
+            <span>
+              {offline
+                ? "Vous êtes hors connexion. Vos données restent affichées ; reconnectez-vous pour valider une action."
+                : readError}
+            </span>
+            <button
+              disabled={offline || busy}
+              onClick={() => void run(refresh)}
+            >
+              Réessayer
+            </button>
+          </div>
+        )}
         {checking ? (
-          <div className="app-loading" role="progressbar" aria-label="Vérification de la connexion"><span /></div>
+          <div
+            className="app-loading"
+            role="progressbar"
+            aria-label="Vérification de la connexion"
+          >
+            <span />
+          </div>
         ) : !supabase ? (
           <div className="max-w-xl border rounded-2xl bg-card p-8">
             <h1 className="text-3xl font-bold mb-4">
@@ -424,7 +541,15 @@ export default function OperationsApp() {
             </p>
           </div>
         ) : !session || recovery ? (
-          <AuthPage invitationToken={invitationToken} recovery={recovery && !!session} onRecovered={() => { setRecovery(false); window.history.replaceState(null, "", "/app"); setNotice("Votre mot de passe a été modifié."); }} />
+          <AuthPage
+            invitationToken={invitationToken}
+            recovery={recovery && !!session}
+            onRecovered={() => {
+              setRecovery(false);
+              window.history.replaceState(null, "", "/app");
+              setNotice("Votre mot de passe a été modifié.");
+            }}
+          />
         ) : window.location.pathname === "/invitation" ? (
           <AcceptInvitation
             onAccepted={() => {
@@ -464,7 +589,12 @@ export default function OperationsApp() {
               <Button
                 variant="yolo"
                 size="lg"
-                disabled={!sites.find((s) => s.id === site)?.active || busy || offline || hasPending}
+                disabled={
+                  !sites.find((s) => s.id === site)?.active ||
+                  busy ||
+                  offline ||
+                  hasPending
+                }
                 onClick={() => setCreating((v) => !v)}
               >
                 <Plus data-icon="inline-start" />
@@ -662,7 +792,13 @@ export default function OperationsApp() {
                     Actualiser
                   </Button>
                 </div>
-                {missionsLoading ? <p role="status">Actualisation des livraisons…</p> : readError && !lastUpdated ? <p className="bw-empty">Les livraisons ne sont pas disponibles pour le moment.</p> : missions.length === 0 ? (
+                {missionsLoading ? (
+                  <p role="status">Actualisation des livraisons…</p>
+                ) : readError && !lastUpdated ? (
+                  <p className="bw-empty">
+                    Les livraisons ne sont pas disponibles pour le moment.
+                  </p>
+                ) : missions.length === 0 ? (
                   <p className="p-8 border rounded-xl text-muted-foreground">
                     Aucune livraison pour ce point de retrait.
                   </p>
@@ -687,25 +823,74 @@ export default function OperationsApp() {
                           : "Livreur non attribué"}
                       </p>
                       <div className="flex flex-wrap gap-2">
+                        {["searching", "assigned", "at_pickup"].includes(
+                          m.status,
+                        ) && (
+                          <Button
+                            variant="outline"
+                            disabled={busy || offline}
+                            onClick={() => {
+                              const requestId = crypto.randomUUID();
+                              openAction({
+                                title:
+                                  "Annuler la livraison " + m.reference + " ?",
+                                description:
+                                  "Le colis doit encore être au point de retrait. Cette annulation mettra fin à la recherche ou à l’affectation du livreur.",
+                                confirm: "Annuler la livraison",
+                                destructive: true,
+                                onConfirm: async () => {
+                                  await rpc("operator_release_delivery", {
+                                    p_delivery_id: m.id,
+                                    p_cancel: true,
+                                    p_request_id: requestId,
+                                  });
+                                  setChallenge((current) =>
+                                    current?.id === m.id ? null : current,
+                                  );
+                                  setProofs((current) =>
+                                    current.filter(
+                                      (proof) => proof.delivery_id !== m.id,
+                                    ),
+                                  );
+                                  setNotice(
+                                    "La livraison " +
+                                      m.reference +
+                                      " a été annulée.",
+                                  );
+                                  await refresh();
+                                },
+                              });
+                            }}
+                          >
+                            Annuler la livraison
+                          </Button>
+                        )}
+
                         {!["delivered", "cancelled"].includes(m.status) && (
                           <Button
                             variant="outline"
                             disabled={busy || offline}
                             onClick={() =>
-                              void run(async () => {
-                                const reason = window.prompt(
-                                  "Après vérification du destinataire, indiquez le motif de réémission (10 caractères minimum). L’ancien code sera invalidé.",
-                                );
-                                if (!reason) return;
-                                const proof = await rpc<{
-                                  delivery_id: string;
-                                  recipient_pin: string;
-                                }>("operator_reissue_recipient_code", {
-                                  p_delivery_id: m.id,
-                                  p_reason: reason,
-                                });
-                                setProofs([proof]);
-                                setNotice("Le nouveau code est disponible. L’ancien a été invalidé.");
+                              openAction({
+                                title: "Réémettre le code destinataire",
+                                description:
+                                  "Vérifiez l’identité du destinataire avant de continuer. L’ancien code sera invalidé.",
+                                confirm: "Créer le nouveau code",
+                                inputLabel: "Motif de réémission",
+                                minLength: 10,
+                                onConfirm: async (reason) => {
+                                  const proof = await rpc<{
+                                    delivery_id: string;
+                                    recipient_pin: string;
+                                  }>("operator_reissue_recipient_code", {
+                                    p_delivery_id: m.id,
+                                    p_reason: reason,
+                                  });
+                                  setProofs([proof]);
+                                  setNotice(
+                                    "Le nouveau code est disponible. L’ancien a été invalidé.",
+                                  );
+                                },
                               })
                             }
                           >
@@ -747,7 +932,9 @@ export default function OperationsApp() {
                                   });
                                   setNow(Date.now());
                                   setChallenge({ id: m.id, ...c });
-                                  setNotice("Le code de retrait est affiché sur la livraison concernée.");
+                                  setNotice(
+                                    "Le code de retrait est affiché sur la livraison concernée.",
+                                  );
                                 })
                               }
                             >
@@ -755,24 +942,29 @@ export default function OperationsApp() {
                             </Button>
                             <Button
                               variant="yolo"
-                              disabled={busy || !m.pickup_acknowledged_at}
-                              onClick={() =>
-                                void run(async () => {
-                                  if (
-                                    !window.confirm(
-                                      "Avez-vous vérifié le livreur attribué et remis physiquement ce colis ?",
-                                    )
-                                  )
-                                    return;
-                                  await rpc("operator_confirm_pickup", {
-                                    p_delivery_id: m.id,
-                                    p_request_id: crypto.randomUUID(),
-                                  });
-                                  setChallenge(null);
-                                  setNotice("La remise du colis au livreur est confirmée.");
-                                  await refresh();
-                                })
+                              disabled={
+                                busy || offline || !m.pickup_acknowledged_at
                               }
+                              onClick={() => {
+                                const requestId = crypto.randomUUID();
+                                openAction({
+                                  title: "Confirmer la remise du colis",
+                                  description:
+                                    "Avez-vous vérifié le livreur attribué et remis physiquement ce colis ?",
+                                  confirm: "Confirmer la remise",
+                                  onConfirm: async () => {
+                                    await rpc("operator_confirm_pickup", {
+                                      p_delivery_id: m.id,
+                                      p_request_id: requestId,
+                                    });
+                                    setChallenge(null);
+                                    setNotice(
+                                      "La remise du colis au livreur est confirmée.",
+                                    );
+                                    await refresh();
+                                  },
+                                });
+                              }}
                             >
                               Confirmer la remise physique
                             </Button>
@@ -804,6 +996,7 @@ export default function OperationsApp() {
           </BusinessWorkspace>
         )}
       </main>
+      {popup}
     </div>
   );
 }
