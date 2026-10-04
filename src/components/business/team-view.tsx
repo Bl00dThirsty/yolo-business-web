@@ -1,10 +1,32 @@
+import { useActionPopup } from "@/components/ui/action-popup";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
-import { UserPlus, Copy, Trash2 } from "lucide-react";
+import {
+  UserPlus,
+  Copy,
+  Trash2,
+  MoreVertical,
+  Ban,
+  Unlock,
+} from "lucide-react";
 import { businessRequest } from "./business-api";
 interface Team {
   can_manage: boolean;
   is_admin: boolean;
-  members: { id: string; email: string; manager: boolean }[];
+  members: {
+    id: string;
+    email: string;
+    manager: boolean;
+    blocked: boolean;
+    admin: boolean;
+  }[];
   invitations: {
     id: string;
     email: string;
@@ -26,6 +48,7 @@ export function BusinessTeam({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
+  const { openAction, popup } = useActionPopup();
   const lock = useRef(false);
   useEffect(() => {
     let active = true;
@@ -40,7 +63,11 @@ export function BusinessTeam({
       active = false;
     };
   }, [locationId]);
-  async function act(action: string, payload: Record<string, unknown>) {
+  async function act(
+    action: string,
+    payload: Record<string, unknown>,
+    popupAction = false,
+  ) {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -59,10 +86,27 @@ export function BusinessTeam({
         );
         setEmail("");
       }
-      if (!result.token) setNotice(action === "invite_revoke" ? "L’invitation a été révoquée." : action === "member_remove" ? "L’accès du collaborateur a été retiré." : "Le rôle du collaborateur a été mis à jour.");
-      try { setTeam(await businessRequest<Team>(locationId, "team")); }
-      catch { setError("La modification est enregistrée, mais la liste n’a pas pu être actualisée. Rouvrez cette page pour la vérifier."); }
+      if (!result.token)
+        setNotice(
+          action === "invite_revoke"
+            ? "L’invitation a été révoquée."
+            : action === "member_remove"
+              ? "L’accès du collaborateur a été retiré."
+              : action === "member_block"
+                ? payload.blocked
+                  ? "L’accès du collaborateur a été bloqué."
+                  : "L’accès du collaborateur a été rétabli."
+                : "Le rôle du collaborateur a été mis à jour.",
+        );
+      try {
+        setTeam(await businessRequest<Team>(locationId, "team"));
+      } catch {
+        setError(
+          "La modification est enregistrée, mais la liste n’a pas pu être actualisée. Rouvrez cette page pour la vérifier.",
+        );
+      }
     } catch (e) {
+      if (popupAction) throw e;
       setError(e instanceof Error ? e.message : "Veuillez réessayer.");
     } finally {
       lock.current = false;
@@ -115,9 +159,9 @@ export function BusinessTeam({
                 Inviter un collaborateur
               </button>
               <p className="bw-hint">
-                Accès aux livraisons de ce point. L’invitation
-                expire après 7 jours et doit être acceptée avec cette adresse
-                e-mail vérifiée. Elle n’est pas envoyée automatiquement.
+                Accès aux livraisons de ce point. L’invitation expire après 7
+                jours et doit être acceptée avec cette adresse e-mail vérifiée.
+                Elle n’est pas envoyée automatiquement.
               </p>
             </form>
           ) : (
@@ -170,43 +214,104 @@ export function BusinessTeam({
                         <span className="bw-badge">Vous</span>
                       )}
                     </td>
-                    <td>{member.manager ? "Responsable" : "Opérateur"}</td>
                     <td>
-                      <div className="bw-inline-actions">
-                        {team.is_admin && (
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              void act("manager_set", {
-                                id: member.id,
-                                enabled: !member.manager,
-                              })
-                            }
-                          >
-                            {member.manager
-                              ? "Retirer le rôle responsable"
-                              : "Nommer responsable"}
-                          </button>
+                      {member.admin
+                        ? "Administrateur"
+                        : member.manager
+                          ? "Responsable"
+                          : "Opérateur"}
+                      {member.blocked && (
+                        <span className="bw-badge">Bloqué</span>
+                      )}
+                    </td>
+                    <td>
+                      {team.can_manage &&
+                        member.id !== userId &&
+                        !member.admin &&
+                        (!member.manager || team.is_admin) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled={busy}
+                                aria-label={"Actions pour " + member.email}
+                              >
+                                <MoreVertical />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {team.is_admin && (
+                                <DropdownMenuItem
+                                  disabled={busy || member.blocked}
+                                  onSelect={() =>
+                                    void act("manager_set", {
+                                      id: member.id,
+                                      enabled: !member.manager,
+                                    })
+                                  }
+                                >
+                                  {member.manager
+                                    ? "Retirer le rôle responsable"
+                                    : "Nommer responsable"}
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  openAction({
+                                    title: member.blocked
+                                      ? "Débloquer ce collaborateur ?"
+                                      : "Bloquer ce collaborateur ?",
+                                    description:
+                                      member.email +
+                                      (member.blocked
+                                        ? " retrouvera l’accès à ce point de retrait."
+                                        : " ne pourra plus accéder à ce point de retrait. Vous pourrez rétablir son accès ultérieurement."),
+                                    confirm: member.blocked
+                                      ? "Débloquer"
+                                      : "Bloquer",
+                                    onConfirm: () =>
+                                      act(
+                                        "member_block",
+                                        {
+                                          id: member.id,
+                                          blocked: !member.blocked,
+                                        },
+                                        true,
+                                      ),
+                                  })
+                                }
+                              >
+                                {member.blocked ? <Unlock /> : <Ban />}
+                                {member.blocked ? "Débloquer" : "Bloquer"}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onSelect={() =>
+                                  openAction({
+                                    title: "Supprimer ce collaborateur ?",
+                                    description:
+                                      "L’accès de " +
+                                      member.email +
+                                      " à ce point de retrait sera supprimé. Ses actions passées seront conservées. Une nouvelle invitation sera nécessaire pour le réintégrer.",
+                                    confirm: "Supprimer le collaborateur",
+                                    destructive: true,
+                                    onConfirm: () =>
+                                      act(
+                                        "member_remove",
+                                        { id: member.id },
+                                        true,
+                                      ),
+                                  })
+                                }
+                              >
+                                <Trash2 />
+                                Supprimer
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
-                        {team.can_manage &&
-                          member.id !== userId &&
-                          (!member.manager || team.is_admin) && (
-                            <button
-                              disabled={busy}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Retirer l’accès de ${member.email} à ce point de retrait ?`,
-                                  )
-                                )
-                                  void act("member_remove", { id: member.id });
-                              }}
-                            >
-                              <Trash2 size={15} />
-                              Retirer
-                            </button>
-                          )}
-                      </div>
                     </td>
                   </tr>
                 ))}
@@ -253,6 +358,7 @@ export function BusinessTeam({
           )}
         </>
       )}
+      {popup}
     </section>
   );
 }
