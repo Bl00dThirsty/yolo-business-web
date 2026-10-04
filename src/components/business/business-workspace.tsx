@@ -1,3 +1,5 @@
+import { GettingStarted } from "./getting-started";
+import { ContextHelp } from "@/components/ui/context-help";
 import "@fontsource-variable/manrope";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -45,6 +47,9 @@ const navigation = [
   ["settings", "Paramètres", Settings],
 ] as const;
 export function BusinessWorkspace({
+  view,
+  onNavigate,
+  guideRequest,
   children,
   settings,
   sites,
@@ -59,6 +64,9 @@ export function BusinessWorkspace({
   lastUpdated,
   readFailed,
 }: {
+  view: string;
+  onNavigate: (view: string) => void;
+  guideRequest: number;
   children: ReactNode;
   settings: ReactNode;
   sites: Site[];
@@ -73,12 +81,14 @@ export function BusinessWorkspace({
   lastUpdated: Date | null;
   readFailed: boolean;
 }) {
-  const [view, setView] = useState<string>("dashboard"),
-    [menu, setMenu] = useState(false);
+  const [menu, setMenu] = useState(false);
   const viewHeading = useRef<HTMLDivElement>(null);
   const firstView = useRef(true);
   useEffect(() => {
-    if (firstView.current) { firstView.current = false; return; }
+    if (firstView.current) {
+      firstView.current = false;
+      return;
+    }
     viewHeading.current?.focus({ preventScroll: true });
   }, [view]);
   const selected = sites.find((s) => s.id === site);
@@ -86,7 +96,7 @@ export function BusinessWorkspace({
     (m) => !["delivered", "cancelled"].includes(m.status),
   ).length;
   function navigate(next: string) {
-    setView(next);
+    onNavigate(next);
     setMenu(false);
   }
   function create() {
@@ -124,7 +134,12 @@ export function BusinessWorkspace({
       <div className="bw-main" ref={viewHeading} tabIndex={-1}>
         <div className="bw-workspace-bar">
           <label>
-            Point de retrait
+            Point de retrait{" "}
+            <ContextHelp label="Aide : point de retrait">
+              Changer de point affiche uniquement ses livraisons et ses
+              collaborateurs. Vérifiez le point sélectionné avant de créer une
+              demande.
+            </ContextHelp>
             <select
               value={site}
               disabled={locked || !sites.length}
@@ -142,116 +157,158 @@ export function BusinessWorkspace({
             {selected?.active ? "Point actif" : "Activation à compléter"}
           </span>
         </div>
-        {lastUpdated && <p className="bw-sync-status">{readFailed ? "Dernière actualisation réussie" : "Actualisé"} à {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</p>}
-        {view === "dashboard" && (
-          <>
-            <div className="bw-page-heading">
-              <div>
-                <span className="bw-kicker">BONJOUR ET BIENVENUE</span>
-                <h1>Votre activité, en un coup d’œil.</h1>
-                <p>Retrouvez vos livraisons et les actions du quotidien.</p>
+        {lastUpdated && (
+          <p className="bw-sync-status">
+            {readFailed ? "Dernière actualisation réussie" : "Actualisé"} à{" "}
+            {lastUpdated.toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
+        )}
+        <div hidden={view !== "dashboard"}>
+          <div className="bw-page-heading">
+            <div>
+              <span className="bw-kicker">BONJOUR ET BIENVENUE</span>
+              <h1>Votre activité, en un coup d’œil.</h1>
+              <p>Retrouvez vos livraisons et les actions du quotidien.</p>
+            </div>
+            <button
+              className="bw-primary"
+              disabled={!selected?.active || locked}
+              onClick={create}
+            >
+              <Plus size={17} />
+              Nouvelle livraison
+            </button>
+          </div>
+          <GettingStarted
+            userId={userId}
+            request={guideRequest}
+            active={!!selected?.active}
+            hasDeliveries={missions.length > 0}
+            locked={locked}
+            onNavigate={navigate}
+            onCreate={create}
+          />
+          <dl
+            className="bw-stats"
+            aria-label="Statistiques des livraisons"
+            aria-busy={loading}
+          >
+            {[
+              [
+                "Livraisons récentes",
+                missions.length,
+                "Dernières demandes reçues",
+              ],
+              ["En cours", inProgress, "En attente ou en livraison"],
+              [
+                "Livrées",
+                missions.filter((m) => m.status === "delivered").length,
+                "Remises au destinataire",
+              ],
+              [
+                "Annulées",
+                missions.filter((m) => m.status === "cancelled").length,
+                "Demandes annulées",
+              ],
+            ].map(([label, value, description]) => (
+              <div className="bw-stat" key={label}>
+                <dt>{label}</dt>
+                <dd>
+                  {loading ? (
+                    <span
+                      className="bw-number-skeleton"
+                      aria-label="Chargement"
+                    />
+                  ) : readFailed && !lastUpdated ? (
+                    "Indisponible"
+                  ) : (
+                    value
+                  )}
+                </dd>
+                <p>{description}</p>
               </div>
-              <button
-                className="bw-primary"
-                disabled={!selected?.active || locked}
-                onClick={create}
-              >
-                <Plus size={17} />
-                Nouvelle livraison
+            ))}
+          </dl>
+          <p className="bw-hint">
+            Indicateurs sur les 100 dernières livraisons du point sélectionné.{" "}
+            <ContextHelp label="Aide : indicateurs">
+              Ces compteurs concernent les dernières demandes chargées pour ce
+              point, et non l’ensemble de votre historique.
+            </ContextHelp>
+          </p>
+          <div className="bw-dashboard-grid">
+            <div className="bw-table-card">
+              <div className="bw-card-heading">
+                <h2>Dernières livraisons</h2>
+                <button onClick={() => navigate("deliveries")}>
+                  Tout voir <ArrowRight size={15} />
+                </button>
+              </div>
+              {loading ? (
+                <p role="status">Actualisation des livraisons…</p>
+              ) : readFailed && !lastUpdated ? (
+                <p className="bw-empty">
+                  Les livraisons ne sont pas disponibles pour le moment.
+                </p>
+              ) : missions.length === 0 ? (
+                <div className="bw-empty">
+                  <Package size={28} />
+                  <h3>Prêt pour votre premier départ ?</h3>
+                  <p>Vos livraisons apparaîtront ici dès leur création.</p>
+                </div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Référence</th>
+                      <th>Destinataire</th>
+                      <th>Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {missions.slice(0, 6).map((m) => (
+                      <tr key={m.id}>
+                        <td>
+                          <button onClick={() => navigate("deliveries")}>
+                            {m.reference}
+                          </button>
+                        </td>
+                        <td>{m.recipient_name}</td>
+                        <td>
+                          <span className="bw-badge">
+                            {statuses[m.status] || m.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="bw-card bw-quick-actions">
+              <h2>Actions rapides</h2>
+              <button disabled={!site} onClick={() => navigate("team")}>
+                <Users size={19} />
+                <span>
+                  Inviter un collaborateur
+                  <small>Gérer les accès de votre équipe</small>
+                </span>
+                <ArrowRight size={16} />
+              </button>
+              <button onClick={() => navigate("sites")}>
+                <MapPin size={19} />
+                <span>
+                  Mes points de retrait
+                  <small>Adresses et disponibilité</small>
+                </span>
+                <ArrowRight size={16} />
               </button>
             </div>
-            <dl className="bw-stats" aria-label="Statistiques des livraisons" aria-busy={loading}>
-              {[
-                ["Livraisons récentes", missions.length, "Dernières demandes reçues"],
-                ["En cours", inProgress, "En attente ou en livraison"],
-                [
-                  "Livrées",
-                  missions.filter((m) => m.status === "delivered").length,
-                  "Remises au destinataire",
-                ],
-                [
-                  "Annulées",
-                  missions.filter((m) => m.status === "cancelled").length,
-                  "Demandes annulées",
-                ],
-              ].map(([label, value, description]) => (
-                <div className="bw-stat" key={label}>
-                  <dt>{label}</dt>
-                  <dd>{loading ? <span className="bw-number-skeleton" aria-label="Chargement" /> : readFailed && !lastUpdated ? "Indisponible" : value}</dd>
-                  <p>{description}</p>
-                </div>
-              ))}
-            </dl>
-            <p className="bw-hint">
-              Indicateurs sur les 100 dernières livraisons du point sélectionné.
-            </p>
-            <div className="bw-dashboard-grid">
-              <div className="bw-table-card">
-                <div className="bw-card-heading">
-                  <h2>Dernières livraisons</h2>
-                  <button onClick={() => navigate("deliveries")}>
-                    Tout voir <ArrowRight size={15} />
-                  </button>
-                </div>
-                {loading ? (
-                  <p role="status">Actualisation des livraisons…</p>
-                ) : readFailed && !lastUpdated ? <p className="bw-empty">Les livraisons ne sont pas disponibles pour le moment.</p> : missions.length === 0 ? (
-                  <div className="bw-empty">
-                    <Package size={28} />
-                    <h3>Prêt pour votre premier départ ?</h3>
-                    <p>Vos livraisons apparaîtront ici dès leur création.</p>
-                  </div>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Référence</th>
-                        <th>Destinataire</th>
-                        <th>Statut</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {missions.slice(0, 6).map((m) => (
-                        <tr key={m.id}>
-                          <td>
-                            <button onClick={() => navigate("deliveries")}>
-                              {m.reference}
-                            </button>
-                          </td>
-                          <td>{m.recipient_name}</td>
-                          <td>
-                            <span className="bw-badge">
-                              {statuses[m.status] || m.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-              <div className="bw-card bw-quick-actions">
-                <h2>Actions rapides</h2>
-                <button disabled={!site} onClick={() => navigate("team")}>
-                  <Users size={19} />
-                  <span>
-                    Inviter un collaborateur
-                    <small>Gérer les accès de votre équipe</small>
-                  </span>
-                  <ArrowRight size={16} />
-                </button>
-                <button onClick={() => navigate("sites")}>
-                  <MapPin size={19} />
-                  <span>
-                    Mes points de retrait
-                    <small>Adresses et disponibilité</small>
-                  </span>
-                  <ArrowRight size={16} />
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+          </div>
+        </div>
         <div hidden={view !== "deliveries"}>{children}</div>
         {view === "team" &&
           (site ? (

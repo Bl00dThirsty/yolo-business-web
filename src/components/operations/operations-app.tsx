@@ -1,3 +1,5 @@
+import { WorkspaceHeader } from "@/components/business/workspace-header";
+import { ContextHelp } from "@/components/ui/context-help";
 import { useActionPopup } from "@/components/ui/action-popup";
 import { AuthPage } from "./auth-page";
 import { BusinessWorkspace } from "@/components/business/business-workspace";
@@ -7,7 +9,6 @@ import type { Session } from "@supabase/supabase-js";
 import {
   Plus,
   Trash2,
-  LogOut,
   RefreshCw,
   Package,
   CheckCircle2,
@@ -17,7 +18,6 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DestinationPicker, type DestinationPoint } from "./destination-picker";
-import logo from "@/assets/logo-yolo-black.png";
 
 import { AccountSettings, type PickupLocation } from "./account-settings";
 
@@ -101,7 +101,14 @@ export default function OperationsApp() {
       new URLSearchParams(window.location.hash.slice(1)).get("type") ===
         "recovery",
   );
+  const [workspaceView, setWorkspaceView] = useState("dashboard");
+  const [guideRequest, setGuideRequest] = useState(0);
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 8000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [readError, setReadError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
@@ -198,6 +205,8 @@ export default function OperationsApp() {
       setChecking(false);
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
       if (event === "SIGNED_OUT") {
+        setWorkspaceView("dashboard");
+        setGuideRequest(0);
         setChallenge(null);
         setProofs([]);
         setNotice("");
@@ -449,40 +458,29 @@ export default function OperationsApp() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {session && !recovery && (
-        <header className="border-b bg-card">
-          <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
-            <a href="/" className="flex flex-col items-center">
-              <img src={logo} alt="Yolo" className="w-24" />
-              <span className="text-[10px] tracking-[.28em] font-semibold mt-1">
-                BUSINESS
-              </span>
-            </a>
-            <div className="flex gap-3 items-center">
-              {session && (
-                <Button
-                  variant="outline"
-                  disabled={busy || hasPending}
-                  onClick={() =>
-                    void run(async () => {
-                      if (userId)
-                        sessionStorage.removeItem(
-                          "yolo.pending-batch." + userId,
-                        );
-                      const { error } = await supabase!.auth.signOut();
-                      if (error)
-                        throw Error(
-                          "La déconnexion n’a pas abouti. Réessayez.",
-                        );
-                    })
-                  }
-                >
-                  <LogOut data-icon="inline-start" />
-                  Déconnexion
-                </Button>
-              )}
-            </div>
-          </div>
-        </header>
+        <WorkspaceHeader
+          email={session.user.email || ""}
+          name={
+            typeof session.user.user_metadata?.display_name === "string"
+              ? session.user.user_metadata.display_name
+              : ""
+          }
+          disabled={busy || hasPending}
+          onSettings={() => setWorkspaceView("settings")}
+          onGuide={() => {
+            setWorkspaceView("dashboard");
+            setGuideRequest((v) => v + 1);
+          }}
+          onSignOut={() =>
+            void run(async () => {
+              if (userId)
+                sessionStorage.removeItem("yolo.pending-batch." + userId);
+              const { error } = await supabase!.auth.signOut();
+              if (error)
+                throw Error("La déconnexion n’a pas abouti. Réessayez.");
+            })
+          }
+        />
       )}
       <main className={session && !recovery ? "business-main-root" : ""}>
         {error && (
@@ -490,7 +488,7 @@ export default function OperationsApp() {
             role="alert"
             ref={errorPanel}
             tabIndex={-1}
-            className="border border-destructive rounded-xl p-4 text-sm"
+            className="bw-global-error"
           >
             {error}
           </div>
@@ -558,9 +556,17 @@ export default function OperationsApp() {
           />
         ) : (
           <BusinessWorkspace
+            view={workspaceView}
+            onNavigate={setWorkspaceView}
+            guideRequest={guideRequest}
             key={userId}
             settings={
               <AccountSettings
+                displayName={
+                  typeof session.user.user_metadata?.display_name === "string"
+                    ? session.user.user_metadata.display_name
+                    : ""
+                }
                 key={userId}
                 locations={sites}
                 isAdmin={isAdmin}
@@ -781,7 +787,12 @@ export default function OperationsApp() {
               <section className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">
-                    Livraisons du point de retrait
+                    Livraisons du point de retrait{" "}
+                    <ContextHelp label="Aide : cycle de livraison">
+                      Le statut suit les actions du livreur. Vous pouvez annuler
+                      avant le retrait ; une remise confirmée nécessite ensuite
+                      un traitement par l’assistance.
+                    </ContextHelp>
                   </h2>
                   <Button
                     variant="outline"
