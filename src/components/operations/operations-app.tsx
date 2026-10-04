@@ -1,3 +1,5 @@
+import { SuccessAnimation } from "@/components/ui/success-animation";
+import { EditDelivery, type EditableDelivery } from "./edit-delivery";
 import { WorkspaceHeader } from "@/components/business/workspace-header";
 import { ContextHelp } from "@/components/ui/context-help";
 import { useActionPopup } from "@/components/ui/action-popup";
@@ -11,7 +13,6 @@ import {
   Trash2,
   RefreshCw,
   Package,
-  CheckCircle2,
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +33,11 @@ interface Mission {
   id: string;
   reference: string;
   status: string;
+  version: number;
+  recipient_phone: string;
+  dropoff_lat: number;
+  dropoff_lng: number;
+  instructions: string;
   recipient_name: string;
   dropoff_address: string;
   courier_name?: string;
@@ -101,6 +107,8 @@ export default function OperationsApp() {
       new URLSearchParams(window.location.hash.slice(1)).get("type") ===
         "recovery",
   );
+  const [editingDelivery, setEditingDelivery] =
+    useState<EditableDelivery | null>(null);
   const [workspaceView, setWorkspaceView] = useState("dashboard");
   const [guideRequest, setGuideRequest] = useState(0);
   const [notice, setNotice] = useState("");
@@ -160,7 +168,7 @@ export default function OperationsApp() {
     [reference, setReference] = useState(""),
     [ready, setReady] = useState(true);
   const [proofs, setProofs] = useState<
-    { delivery_id: string; recipient_pin?: string }[]
+    { delivery_id: string; recipient_pin?: string; recipient_phone?: string; reference?: string }[]
   >([]);
   const [challenge, setChallenge] = useState<{
     id: string;
@@ -495,7 +503,7 @@ export default function OperationsApp() {
         )}
         {session && !recovery && notice && (
           <div className="bw-action-feedback" role="status">
-            <CheckCircle2 size={18} />
+            <SuccessAnimation key={notice} />
             <span>{notice}</span>
             <button
               onClick={() => setNotice("")}
@@ -634,8 +642,49 @@ export default function OperationsApp() {
                       {p.recipient_pin ??
                         "Code déjà émis — contacter l’exploitation si nécessaire"}
                     </strong>
+                    {p.recipient_pin &&
+                      (() => {
+                        const mission = missions.find(
+                          (m) => m.id === p.delivery_id,
+                        );
+                        const phone = (p.recipient_phone ?? mission?.recipient_phone)?.replace(
+                          /\D/g,
+                          "",
+                        );
+                        return phone && /^2376[0-9]{8}$/.test(phone) ? (
+                          <a
+                            className="bw-whatsapp-share"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            href={
+                              "https://wa.me/" +
+                              phone +
+                              "?text=" +
+                              encodeURIComponent(
+                                "Yolo Livraison " +
+                                  (p.reference ?? mission?.reference ?? "") +
+                                  " : votre code de réception est " +
+                                  p.recipient_pin +
+                                  ". Communiquez-le au livreur uniquement après réception de votre colis.",
+                              )
+                            }
+                          >
+                            Ouvrir WhatsApp pour le destinataire
+                          </a>
+                        ) : (
+                          <span className="block text-xs text-muted-foreground">
+                            Actualisez les livraisons pour retrouver le numéro
+                            du destinataire.
+                          </span>
+                        );
+                      })()}
                   </div>
                 ))}
+                <p className="text-xs text-muted-foreground">
+                  WhatsApp s’ouvre avec un message prérempli. Vérifiez le
+                  destinataire puis confirmez l’envoi dans WhatsApp. Aucun envoi
+                  automatique.
+                </p>
                 <Button variant="outline" onClick={() => setProofs([])}>
                   Masquer les codes
                 </Button>
@@ -834,6 +883,15 @@ export default function OperationsApp() {
                           : "Livreur non attribué"}
                       </p>
                       <div className="flex flex-wrap gap-2">
+                        {m.status === "searching" && (
+                          <Button
+                            variant="outline"
+                            disabled={busy || offline}
+                            onClick={() => setEditingDelivery({ ...m })}
+                          >
+                            Modifier la livraison
+                          </Button>
+                        )}
                         {["searching", "assigned", "at_pickup"].includes(
                           m.status,
                         ) && (
@@ -1007,6 +1065,34 @@ export default function OperationsApp() {
           </BusinessWorkspace>
         )}
       </main>
+      {editingDelivery && (
+        <EditDelivery
+          key={editingDelivery.id}
+          delivery={editingDelivery}
+          onClose={() => setEditingDelivery(null)}
+          onSaved={(result) => {
+            if (result.recipient_code_changed) {
+              setProofs((current) =>
+                current.filter((p) => p.delivery_id !== result.delivery_id),
+              );
+              if (result.recipient_pin)
+                setProofs([
+                  {
+                    delivery_id: result.delivery_id,
+                    recipient_pin: result.recipient_pin,
+                  recipient_phone: result.recipient_phone, reference: result.reference,
+                  },
+                ]);
+            }
+            setNotice(
+              result.recipient_code_changed && !result.recipient_pin
+                ? "Livraison modifiée. Le code a changé ; réémettez-le si vous ne l’avez pas reçu."
+                : "La livraison a été modifiée.",
+            );
+            void refresh();
+          }}
+        />
+      )}
       {popup}
     </div>
   );
