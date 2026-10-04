@@ -1119,3 +1119,113 @@
     }
   }
 }
+.bw-onboarding {
+  background: linear-gradient(120deg, #f0faf2 0%, #fff 55%);
+  border-color: #d7e7da;
+  overflow: hidden;
+}
+.bw-onboarding h2 {
+  font-size: 25px;
+  letter-spacing: -0.7px;
+}
+.bw-guide-steps {
+  gap: 16px;
+}
+.bw-guide-steps li {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid #e4ece3;
+  background: #fff;
+  border-radius: 12px;
+}
+.bw-guide-art {
+  grid-column: 1/-1;
+  width: 100%;
+  height: 128px;
+  object-fit: contain;
+  margin: 0 0 20px;
+}
+.bw-guide-steps li > span {
+  grid-column: 1;
+}
+.bw-guide-steps li > div {
+  grid-column: 2;
+}
+.bw-guide-create {
+  color: #14713c;
+  background: #e2f6e9;
+  border-radius: 7px;
+  padding: 9px 11px;
+}
+.bw-guide-steps .bw-guide-create {
+  font-size: 12px;
+}
+.bw-whatsapp-share {
+  display: block;
+  width: fit-content;
+  margin-top: 9px;
+  padding: 8px 12px;
+  border: 1px solid #c9e3d0;
+  border-radius: 7px;
+  color: #16713c;
+  font-weight: 600;
+}
+.bw-whatsapp-share:hover {
+  background: #e2f6e9;
+}
+.bw-success-animation {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.bw-success-animation > span {
+  position: absolute;
+  inset: 0;
+}
+.bw-success-animation svg {
+  width: 100%;
+  height: 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bw-guide-create:not(:disabled) svg {
+    animation: bw-arrow-nudge 1.25s ease-in-out 4;
+  }
+  .bw-guide-create:not(:disabled):hover svg,
+  .bw-guide-create:not(:disabled):focus-visible svg {
+    animation: bw-arrow-nudge 0.9s ease-in-out infinite;
+  }
+  @keyframes bw-arrow-nudge {
+    0%,
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    50% {
+      transform: translateX(5px);
+      opacity: 0.65;
+    }
+  }
+}
+@media (max-width: 700px) {
+  .bw-onboarding h2 {
+    font-size: 22px;
+  }
+  .bw-guide-steps li {
+    grid-template-columns: 30px 1fr;
+  }
+  .bw-guide-art {
+    height: 108px;
+  }
+  .bw-guide-steps {
+    gap: 12px;
+  }
+  .bw-guide-steps li {
+    padding: 16px;
+  }
+}
+@media(max-width:700px){.bw-guide-steps li{grid-template-columns:26px minmax(0,1fr) 62px;gap:8px}.bw-guide-art{grid-column:3;grid-row:1;width:62px;height:72px;margin:0;align-self:start}.bw-guide-steps li>span{grid-column:1;grid-row:1;width:26px;height:26px}.bw-guide-steps li>div{grid-column:2;grid-row:1}.bw-guide-steps h3{margin-top:4px}.bw-guide-create{padding:8px;font-size:11px!important}}

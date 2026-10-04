@@ -1,3 +1,6 @@
+import locationArt from "@/assets/illustrations/delivery-location_um5t.svg";
+import truckArt from "@/assets/illustrations/delivery-truck_mjui.svg";
+import deliveredArt from "@/assets/illustrations/order-delivered_gy61.svg";
 import { useState } from "react";
 import { Check, ArrowRight, X } from "lucide-react";
 export function GettingStarted({
@@ -41,9 +44,10 @@ export function GettingStarted({
       <div className="bw-onboarding-heading">
         <div>
           <span className="bw-kicker">BIEN DÉMARRER</span>
-          <h2>Votre prochaine livraison commence ici.</h2>
+          <h2>De votre boutique à leur porte.</h2>
           <p>
-            Quelques repères pour prendre votre espace en main, à votre rythme.
+            Un point de départ, un colis prêt, un destinataire heureux. On vous
+            guide.
           </p>
         </div>
         <button
@@ -56,6 +60,12 @@ export function GettingStarted({
       </div>
       <ol className="bw-guide-steps">
         <li>
+          <img
+            className="bw-guide-art"
+            src={locationArt}
+            alt=""
+            aria-hidden="true"
+          />
           <span className={active ? "is-done" : ""}>
             {active ? <Check size={15} /> : "01"}
           </span>
@@ -72,6 +82,12 @@ export function GettingStarted({
           </div>
         </li>
         <li>
+          <img
+            className="bw-guide-art"
+            src={truckArt}
+            alt=""
+            aria-hidden="true"
+          />
           <span className={hasDeliveries ? "is-done" : ""}>
             {hasDeliveries ? <Check size={15} /> : "02"}
           </span>
@@ -81,13 +97,23 @@ export function GettingStarted({
               Prévoyez le numéro du destinataire, son adresse et les détails du
               colis.
             </p>
-            <button disabled={!active || locked} onClick={onCreate}>
+            <button
+              className="bw-guide-create"
+              disabled={!active || locked}
+              onClick={onCreate}
+            >
               Créer une livraison <ArrowRight size={14} />
             </button>
             {!active && <small>Un point actif est nécessaire.</small>}
           </div>
         </li>
         <li>
+          <img
+            className="bw-guide-art"
+            src={deliveredArt}
+            alt=""
+            aria-hidden="true"
+          />
           <span>03</span>
           <div>
             <h3>Suivez chaque remise</h3>
