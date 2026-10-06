@@ -15,9 +15,9 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "/favicon-yolo.png?v=20261006",
+      "sizes": "16x16",
+      "type": "image/png"
     }
   ]
 }
