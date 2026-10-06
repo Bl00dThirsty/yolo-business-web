@@ -3,6 +3,6 @@
   <ShortName>Yolo Business</ShortName>
   <Description>Rechercher des guides et solutions de livraison Yolo Business</Description>
   <InputEncoding>UTF-8</InputEncoding>
-  <Image width="16" height="16" type="image/x-icon">https://business.yolo-hub.com/favicon.svg</Image>
+  <Image width="16" height="16" type="image/png">https://business.yolo-hub.com/favicon-yolo.png?v=20261006</Image>
   <Url type="text/html" template="https://business.yolo-hub.com/ressources?q={searchTerms}"/>
 </OpenSearchDescription>
