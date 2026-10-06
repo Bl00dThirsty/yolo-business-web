@@ -1,22 +1,21 @@
+import { Toaster } from "sonner";
+import { useDeferredCancellation } from "./deferred-cancellation";
+import { DeliveryBrowser } from "./delivery-browser";
+import { SuccessAnimation } from "@/components/ui/success-animation";
+import { EditDelivery, type EditableDelivery } from "./edit-delivery";
+import { WorkspaceHeader } from "@/components/business/workspace-header";
+import { ContextHelp } from "@/components/ui/context-help";
+import { useActionPopup } from "@/components/ui/action-popup";
 import { AuthPage } from "./auth-page";
 import { BusinessWorkspace } from "@/components/business/business-workspace";
 import { AcceptInvitation } from "@/components/business/accept-invitation";
 import { useEffect, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import {
-  Plus,
-  Trash2,
-  LogOut,
-  RefreshCw,
-  Package,
-  CheckCircle2,
-  X,
-} from "lucide-react";
+import { Plus, Trash2, RefreshCw, Package, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DestinationPicker, type DestinationPoint } from "./destination-picker";
-import logo from "@/assets/logo-yolo-black.png";
 
 import { AccountSettings, type PickupLocation } from "./account-settings";
 
@@ -31,6 +30,11 @@ interface Mission {
   id: string;
   reference: string;
   status: string;
+  version: number;
+  recipient_phone: string;
+  dropoff_lat: number;
+  dropoff_lng: number;
+  instructions: string;
   recipient_name: string;
   dropoff_address: string;
   courier_name?: string;
@@ -61,15 +65,6 @@ const blankParcel = (): Parcel => ({
   fee: "",
   point: null,
 });
-const labels: Record<string, string> = {
-  searching: "Recherche du livreur",
-  assigned: "Livreur en route",
-  at_pickup: "Au retrait",
-  picked_up: "En livraison",
-  at_dropoff: "Chez le destinataire",
-  delivered: "Livrée",
-  cancelled: "Annulée",
-};
 class RpcFailure extends Error {
   constructor(
     message: string,
@@ -89,22 +84,47 @@ async function rpc<T>(
   return data as T;
 }
 export default function OperationsApp() {
+  const { openAction, popup } = useActionPopup();
   const [session, setSession] = useState<Session | null>(null),
     [checking, setChecking] = useState(!!supabase);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [recovery, setRecovery] = useState(() => new URLSearchParams(window.location.search).get("reset") === "1" || new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery");
+  const [recovery, setRecovery] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get("reset") === "1" ||
+      new URLSearchParams(window.location.hash.slice(1)).get("type") ===
+        "recovery",
+  );
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState<string | null>(
+    null,
+  );
+  const [editingDelivery, setEditingDelivery] =
+    useState<EditableDelivery | null>(null);
+  const [workspaceView, setWorkspaceView] = useState("dashboard");
+  const [guideRequest, setGuideRequest] = useState(0);
   const [notice, setNotice] = useState("");
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 8000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   const [readError, setReadError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
   const latestRead = useRef(0);
   const errorPanel = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (error) errorPanel.current?.focus(); }, [error]);
   useEffect(() => {
-    const online = () => setOffline(false), offline = () => setOffline(true);
-    window.addEventListener("online", online); window.addEventListener("offline", offline);
-    return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
+    if (error) errorPanel.current?.focus();
+  }, [error]);
+  useEffect(() => {
+    const online = () => setOffline(false),
+      offline = () => setOffline(true);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
   }, []);
   const [invitationToken] = useState(() => {
     if (window.location.pathname !== "/invitation") return "";
@@ -139,7 +159,12 @@ export default function OperationsApp() {
     [reference, setReference] = useState(""),
     [ready, setReady] = useState(true);
   const [proofs, setProofs] = useState<
-    { delivery_id: string; recipient_pin?: string }[]
+    {
+      delivery_id: string;
+      recipient_pin?: string;
+      recipient_phone?: string;
+      reference?: string;
+    }[]
   >([]);
   const [challenge, setChallenge] = useState<{
     id: string;
@@ -162,18 +187,34 @@ export default function OperationsApp() {
   useEffect(() => {
     if (!supabase) return;
     let alive = true;
-    void supabase.auth.getSession().then(({ data, error }) => {
-      if (error) throw error;
-      if (alive) {
-        setSession(data.session);
-        setChecking(false);
-      }
-    }).catch(() => { if (alive) { setChecking(false); setError("Votre session n’a pas pu être vérifiée. Rechargez la page."); } });
+    void supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (alive) {
+          setSession(data.session);
+          setChecking(false);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setChecking(false);
+          setError(
+            "Votre session n’a pas pu être vérifiée. Rechargez la page.",
+          );
+        }
+      });
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       setChecking(false);
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
-      if (event === "SIGNED_OUT") { setChallenge(null); setProofs([]); setNotice(""); }
+      if (event === "SIGNED_OUT") {
+        setWorkspaceView("dashboard");
+        setGuideRequest(0);
+        setChallenge(null);
+        setProofs([]);
+        setNotice("");
+      }
     });
     return () => {
       alive = false;
@@ -194,7 +235,13 @@ export default function OperationsApp() {
         if (active) {
           setIsAdmin(data.is_admin);
           setSites(data.locations);
-          setSite(data.locations.find(l => l.id === pending.current?.payload.location_id)?.id ?? data.locations[0]?.id ?? "");
+          setSite(
+            data.locations.find(
+              (l) => l.id === pending.current?.payload.location_id,
+            )?.id ??
+              data.locations[0]?.id ??
+              "",
+          );
         }
       })
       .catch((e) => {
@@ -206,25 +253,42 @@ export default function OperationsApp() {
   }, [userId, workspaceRevision]);
   useEffect(() => {
     const current = ++readVersion.current;
-    setMissions([]); setLastUpdated(null); setReadError(""); setChallenge(null);
-    if (!site || !userId) { setMissionsLoading(false); return; }
+    setMissions([]);
+    setLastUpdated(null);
+    setReadError("");
+    setChallenge(null);
+    if (!site || !userId) {
+      setMissionsLoading(false);
+      return;
+    }
     setMissionsLoading(true);
     const poll = async () => {
       const request = ++latestRead.current;
       try {
-        const rows = await rpc<Mission[]>("operator_list_deliveries", { p_location_id: site });
+        const rows = await rpc<Mission[]>("operator_list_deliveries", {
+          p_location_id: site,
+        });
         if (current === readVersion.current && request === latestRead.current) {
-          setMissions(rows); setMissionsLoading(false); setReadError(""); setLastUpdated(new Date());
+          setMissions(rows);
+          setMissionsLoading(false);
+          setReadError("");
+          setLastUpdated(new Date());
         }
       } catch {
         if (current === readVersion.current && request === latestRead.current) {
-          setReadError("Actualisation impossible. Les informations affichées peuvent être anciennes."); setMissionsLoading(false);
+          setReadError(
+            "Actualisation impossible. Les informations affichées peuvent être anciennes.",
+          );
+          setMissionsLoading(false);
         }
       }
     };
     void poll();
     const timer = setInterval(() => void poll(), 15000);
-    return () => { readVersion.current++; clearInterval(timer); };
+    return () => {
+      readVersion.current++;
+      clearInterval(timer);
+    };
   }, [site, userId]);
   useEffect(() => {
     if (!challenge) return;
@@ -233,23 +297,48 @@ export default function OperationsApp() {
   }, [challenge]);
   useEffect(() => {
     if (!creating && !hasPending) return;
-    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [creating, hasPending]);
   const run = async (action: () => Promise<void>) => {
     if (mutationLock.current) return;
-    mutationLock.current = true; setBusy(true); setError(""); setNotice("");
-    try { await action(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Opération interrompue. Réessayez."); }
-    finally { mutationLock.current = false; setBusy(false); }
+    mutationLock.current = true;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await action();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Opération interrompue. Réessayez.",
+      );
+    } finally {
+      mutationLock.current = false;
+      setBusy(false);
+    }
   };
   const refresh = async () => {
-    const current = readVersion.current, request = ++latestRead.current;
+    const current = readVersion.current,
+      request = ++latestRead.current;
     try {
-      const rows = await rpc<Mission[]>("operator_list_deliveries", { p_location_id: site });
-      if (current === readVersion.current && request === latestRead.current) { setMissions(rows); setMissionsLoading(false); setReadError(""); setLastUpdated(new Date()); }
-    } catch { if (current === readVersion.current && request === latestRead.current) setReadError("La liste n’a pas pu être actualisée. Réessayez pour consulter son état récent."); }
+      const rows = await rpc<Mission[]>("operator_list_deliveries", {
+        p_location_id: site,
+      });
+      if (current === readVersion.current && request === latestRead.current) {
+        setMissions(rows);
+        setMissionsLoading(false);
+        setReadError("");
+        setLastUpdated(new Date());
+      }
+    } catch {
+      if (current === readVersion.current && request === latestRead.current)
+        setReadError(
+          "La liste n’a pas pu être actualisée. Réessayez pour consulter son état récent.",
+        );
+    }
   };
   const update = (id: string, patch: Partial<Parcel>) =>
     setParcels((items) =>
@@ -313,8 +402,12 @@ export default function OperationsApp() {
           JSON.stringify(pending.current),
         );
       }
-      const pendingParcels = pending.current?.payload.parcels as { cash_to_collect?: number }[] | undefined;
-      if (pendingParcels?.some(p => Number(p.cash_to_collect || 0) !== 0)) throw Error("Cette ancienne demande comporte un encaissement de produit. Contactez l’équipe Yolo avant de la reprendre.");
+      const pendingParcels = pending.current?.payload.parcels as
+        { cash_to_collect?: number }[] | undefined;
+      if (pendingParcels?.some((p) => Number(p.cash_to_collect || 0) !== 0))
+        throw Error(
+          "Cette ancienne demande comporte un encaissement de produit. Contactez l’équipe Yolo avant de la reprendre.",
+        );
       let result: {
         deliveries: { delivery_id: string; recipient_pin?: string }[];
       };
@@ -347,7 +440,10 @@ export default function OperationsApp() {
       await refresh();
     });
   useEffect(() => {
-    if (!userId) { rememberPending(null); return; }
+    if (!userId) {
+      rememberPending(null);
+      return;
+    }
     try {
       rememberPending(null);
       const raw = sessionStorage.getItem("yolo.pending-batch." + userId);
@@ -363,56 +459,94 @@ export default function OperationsApp() {
       );
     }
   }, [userId]);
+  const cancellation = useDeferredCancellation(
+    userId ?? undefined,
+    async (item) => {
+      await rpc("operator_release_delivery", {
+        p_delivery_id: item.id,
+        p_cancel: true,
+        p_request_id: item.requestId,
+      });
+      setChallenge((current) => (current?.id === item.id ? null : current));
+      setProofs((current) =>
+        current.filter((proof) => proof.delivery_id !== item.id),
+      );
+      await refresh();
+    },
+  );
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {session && !recovery && <header className="border-b bg-card">
-        <div className="max-w-6xl mx-auto px-5 py-5 flex items-center justify-between gap-4">
-          <a href="/" className="flex flex-col items-center">
-            <img src={logo} alt="Yolo" className="w-24" />
-            <span className="text-[10px] tracking-[.28em] font-semibold mt-1">
-              BUSINESS
-            </span>
-          </a>
-          <div className="flex gap-3 items-center">
-            {session && (
-              <Button
-                variant="outline"
-                disabled={busy || hasPending}
-                onClick={() =>
-                  void run(async () => {
-                    if (userId)
-                      sessionStorage.removeItem("yolo.pending-batch." + userId);
-                    const { error } = await supabase!.auth.signOut();
-                    if (error) throw Error("La déconnexion n’a pas abouti. Réessayez.");
-                  })
-                }
-              >
-                <LogOut data-icon="inline-start" />
-                Déconnexion
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>}
-      <main
-        className={
-          session && !recovery ? "business-main-root" : ""
-        }
-      >
+      {session && !recovery && (
+        <WorkspaceHeader
+          email={session.user.email || ""}
+          name={
+            typeof session.user.user_metadata?.display_name === "string"
+              ? session.user.user_metadata.display_name
+              : ""
+          }
+          disabled={busy || hasPending || !!cancellation.pendingId}
+          onSettings={() => setWorkspaceView("settings")}
+          onGuide={() => {
+            setWorkspaceView("dashboard");
+            setGuideRequest((v) => v + 1);
+          }}
+          onSignOut={() =>
+            void run(async () => {
+              if (userId)
+                sessionStorage.removeItem("yolo.pending-batch." + userId);
+              const { error } = await supabase!.auth.signOut();
+              if (error)
+                throw Error("La déconnexion n’a pas abouti. Réessayez.");
+            })
+          }
+        />
+      )}
+      <main className={session && !recovery ? "business-main-root" : ""}>
         {error && (
           <div
             role="alert"
             ref={errorPanel}
             tabIndex={-1}
-            className="border border-destructive rounded-xl p-4 text-sm"
+            className="bw-global-error"
           >
             {error}
           </div>
         )}
-        {session && !recovery && notice && <div className="bw-action-feedback" role="status"><CheckCircle2 size={18} /><span>{notice}</span><button onClick={() => setNotice("")} aria-label="Fermer la confirmation"><X size={16} /></button></div>}
-        {session && !recovery && (offline || readError) && <div className="bw-read-warning" role="status"><span>{offline ? "Vous êtes hors connexion. Vos données restent affichées ; reconnectez-vous pour valider une action." : readError}</span><button disabled={offline || busy} onClick={() => void run(refresh)}>Réessayer</button></div>}
+        {session && !recovery && notice && (
+          <div className="bw-action-feedback" role="status">
+            <SuccessAnimation key={notice} />
+            <span>{notice}</span>
+            <button
+              onClick={() => setNotice("")}
+              aria-label="Fermer la confirmation"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {session && !recovery && (offline || readError) && (
+          <div className="bw-read-warning" role="status">
+            <span>
+              {offline
+                ? "Vous êtes hors connexion. Vos données restent affichées ; reconnectez-vous pour valider une action."
+                : readError}
+            </span>
+            <button
+              disabled={offline || busy}
+              onClick={() => void run(refresh)}
+            >
+              Réessayer
+            </button>
+          </div>
+        )}
         {checking ? (
-          <div className="app-loading" role="progressbar" aria-label="Vérification de la connexion"><span /></div>
+          <div
+            className="app-loading"
+            role="progressbar"
+            aria-label="Vérification de la connexion"
+          >
+            <span />
+          </div>
         ) : !supabase ? (
           <div className="max-w-xl border rounded-2xl bg-card p-8">
             <h1 className="text-3xl font-bold mb-4">
@@ -424,7 +558,15 @@ export default function OperationsApp() {
             </p>
           </div>
         ) : !session || recovery ? (
-          <AuthPage invitationToken={invitationToken} recovery={recovery && !!session} onRecovered={() => { setRecovery(false); window.history.replaceState(null, "", "/app"); setNotice("Votre mot de passe a été modifié."); }} />
+          <AuthPage
+            invitationToken={invitationToken}
+            recovery={recovery && !!session}
+            onRecovered={() => {
+              setRecovery(false);
+              window.history.replaceState(null, "", "/app");
+              setNotice("Votre mot de passe a été modifié.");
+            }}
+          />
         ) : window.location.pathname === "/invitation" ? (
           <AcceptInvitation
             onAccepted={() => {
@@ -433,9 +575,17 @@ export default function OperationsApp() {
           />
         ) : (
           <BusinessWorkspace
+            view={workspaceView}
+            onNavigate={setWorkspaceView}
+            guideRequest={guideRequest}
             key={userId}
             settings={
               <AccountSettings
+                displayName={
+                  typeof session.user.user_metadata?.display_name === "string"
+                    ? session.user.user_metadata.display_name
+                    : ""
+                }
                 key={userId}
                 locations={sites}
                 isAdmin={isAdmin}
@@ -446,6 +596,10 @@ export default function OperationsApp() {
             site={site}
             setSite={setSite}
             missions={missions}
+            onOpenDelivery={(id) => {
+              setSelectedDeliveryId(id);
+              setWorkspaceView("deliveries");
+            }}
             userId={userId!}
             email={session.user.email || "Mon compte"}
             locked={busy || hasPending || offline || creating}
@@ -464,7 +618,12 @@ export default function OperationsApp() {
               <Button
                 variant="yolo"
                 size="lg"
-                disabled={!sites.find((s) => s.id === site)?.active || busy || offline || hasPending}
+                disabled={
+                  !sites.find((s) => s.id === site)?.active ||
+                  busy ||
+                  offline ||
+                  hasPending
+                }
                 onClick={() => setCreating((v) => !v)}
               >
                 <Plus data-icon="inline-start" />
@@ -498,8 +657,48 @@ export default function OperationsApp() {
                       {p.recipient_pin ??
                         "Code déjà émis — contacter l’exploitation si nécessaire"}
                     </strong>
+                    {p.recipient_pin &&
+                      (() => {
+                        const mission = missions.find(
+                          (m) => m.id === p.delivery_id,
+                        );
+                        const phone = (
+                          p.recipient_phone ?? mission?.recipient_phone
+                        )?.replace(/\D/g, "");
+                        return phone && /^2376[0-9]{8}$/.test(phone) ? (
+                          <a
+                            className="bw-whatsapp-share"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            href={
+                              "https://wa.me/" +
+                              phone +
+                              "?text=" +
+                              encodeURIComponent(
+                                "Yolo Livraison " +
+                                  (p.reference ?? mission?.reference ?? "") +
+                                  " : votre code de réception est " +
+                                  p.recipient_pin +
+                                  ". Communiquez-le au livreur uniquement après réception de votre colis.",
+                              )
+                            }
+                          >
+                            Ouvrir WhatsApp pour le destinataire
+                          </a>
+                        ) : (
+                          <span className="block text-xs text-muted-foreground">
+                            Actualisez les livraisons pour retrouver le numéro
+                            du destinataire.
+                          </span>
+                        );
+                      })()}
                   </div>
                 ))}
+                <p className="text-xs text-muted-foreground">
+                  WhatsApp s’ouvre avec un message prérempli. Vérifiez le
+                  destinataire puis confirmez l’envoi dans WhatsApp. Aucun envoi
+                  automatique.
+                </p>
                 <Button variant="outline" onClick={() => setProofs([])}>
                   Masquer les codes
                 </Button>
@@ -651,7 +850,12 @@ export default function OperationsApp() {
               <section className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-semibold">
-                    Livraisons du point de retrait
+                    Livraisons du point de retrait{" "}
+                    <ContextHelp label="Aide : cycle de livraison">
+                      Le statut suit les actions du livreur. Vous pouvez annuler
+                      avant le retrait ; une remise confirmée nécessite ensuite
+                      un traitement par l’assistance.
+                    </ContextHelp>
                   </h2>
                   <Button
                     variant="outline"
@@ -662,148 +866,240 @@ export default function OperationsApp() {
                     Actualiser
                   </Button>
                 </div>
-                {missionsLoading ? <p role="status">Actualisation des livraisons…</p> : readError && !lastUpdated ? <p className="bw-empty">Les livraisons ne sont pas disponibles pour le moment.</p> : missions.length === 0 ? (
+                {missionsLoading ? (
+                  <p role="status">Actualisation des livraisons…</p>
+                ) : readError && !lastUpdated ? (
+                  <p className="bw-empty">
+                    Les livraisons ne sont pas disponibles pour le moment.
+                  </p>
+                ) : missions.length === 0 ? (
                   <p className="p-8 border rounded-xl text-muted-foreground">
                     Aucune livraison pour ce point de retrait.
                   </p>
                 ) : (
-                  missions.map((m) => (
-                    <article
-                      key={m.id}
-                      className="border rounded-xl bg-card p-5 flex flex-col gap-3"
-                    >
-                      <div className="flex flex-wrap justify-between gap-3">
-                        <strong>{m.reference}</strong>
-                        <span className="text-sm">
-                          {labels[m.status] ?? m.status}
-                        </span>
-                      </div>
-                      <p className="text-sm">
-                        {m.recipient_name} · {m.dropoff_address}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {m.courier_name
-                          ? `Livreur : ${m.courier_name} · ${m.plate || "Plaque non renseignée"}`
-                          : "Livreur non attribué"}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {!["delivered", "cancelled"].includes(m.status) && (
-                          <Button
-                            variant="outline"
-                            disabled={busy || offline}
-                            onClick={() =>
-                              void run(async () => {
-                                const reason = window.prompt(
-                                  "Après vérification du destinataire, indiquez le motif de réémission (10 caractères minimum). L’ancien code sera invalidé.",
-                                );
-                                if (!reason) return;
-                                const proof = await rpc<{
-                                  delivery_id: string;
-                                  recipient_pin: string;
-                                }>("operator_reissue_recipient_code", {
-                                  p_delivery_id: m.id,
-                                  p_reason: reason,
-                                });
-                                setProofs([proof]);
-                                setNotice("Le nouveau code est disponible. L’ancien a été invalidé.");
-                              })
-                            }
-                          >
-                            Réémettre le code destinataire
-                          </Button>
-                        )}
-                        {["searching", "assigned", "at_pickup"].includes(
-                          m.status,
-                        ) && (
-                          <Button
-                            variant="outline"
-                            disabled={busy || offline}
-                            onClick={() =>
-                              void run(async () => {
-                                await rpc("operator_set_ready", {
-                                  p_delivery_id: m.id,
-                                  p_ready: true,
-                                  p_ready_at: new Date().toISOString(),
-                                });
-                                setNotice("Le colis est prêt pour le retrait.");
-                                await refresh();
-                              })
-                            }
-                          >
-                            Colis prêt
-                          </Button>
-                        )}
-                        {m.status === "at_pickup" && (
-                          <>
+                  <DeliveryBrowser
+                    deliveries={missions}
+                    pendingId={cancellation.pendingId}
+                    selectedId={selectedDeliveryId}
+                    onSelect={setSelectedDeliveryId}
+                    renderActions={(m) => (
+                      <>
+                        <div className="flex flex-wrap gap-2">
+                          {m.status === "searching" && (
                             <Button
-                              disabled={busy || offline}
-                              onClick={() =>
-                                void run(async () => {
-                                  const c = await rpc<{
-                                    pin: string;
-                                    expires_at: string;
-                                  }>("operator_issue_pickup", {
-                                    p_delivery_id: m.id,
-                                  });
-                                  setNow(Date.now());
-                                  setChallenge({ id: m.id, ...c });
-                                  setNotice("Le code de retrait est affiché sur la livraison concernée.");
-                                })
+                              variant="outline"
+                              disabled={
+                                busy ||
+                                offline ||
+                                cancellation.pendingId === m.id
                               }
+                              onClick={() => {
+                                setSelectedDeliveryId(null);
+                                setEditingDelivery({ ...m });
+                              }}
                             >
-                              Afficher le code de retrait
+                              Modifier la livraison
                             </Button>
+                          )}
+                          {["searching", "assigned", "at_pickup"].includes(
+                            m.status,
+                          ) && (
                             <Button
-                              variant="yolo"
-                              disabled={busy || !m.pickup_acknowledged_at}
+                              variant="outline"
+                              disabled={
+                                busy || offline || !!cancellation.pendingId
+                              }
+                              onClick={() => {
+                                setNotice("");
+                                setSelectedDeliveryId(null);
+                                cancellation.schedule(m.id, m.reference);
+                              }}
+                            >
+                              Annuler la livraison
+                            </Button>
+                          )}
+
+                          {!["delivered", "cancelled"].includes(m.status) && (
+                            <Button
+                              variant="outline"
+                              disabled={
+                                busy ||
+                                offline ||
+                                cancellation.pendingId === m.id
+                              }
+                              onClick={() => (
+                                setSelectedDeliveryId(null),
+                                openAction({
+                                  title: "Réémettre le code destinataire",
+                                  description:
+                                    "Vérifiez l’identité du destinataire avant de continuer. L’ancien code sera invalidé.",
+                                  confirm: "Créer le nouveau code",
+                                  inputLabel: "Motif de réémission",
+                                  minLength: 10,
+                                  onConfirm: async (reason) => {
+                                    const proof = await rpc<{
+                                      delivery_id: string;
+                                      recipient_pin: string;
+                                    }>("operator_reissue_recipient_code", {
+                                      p_delivery_id: m.id,
+                                      p_reason: reason,
+                                    });
+                                    setProofs([proof]);
+                                    setNotice(
+                                      "Le nouveau code est disponible. L’ancien a été invalidé.",
+                                    );
+                                  },
+                                })
+                              )}
+                            >
+                              Réémettre le code destinataire
+                            </Button>
+                          )}
+                          {["searching", "assigned", "at_pickup"].includes(
+                            m.status,
+                          ) && (
+                            <Button
+                              variant="outline"
+                              disabled={
+                                busy ||
+                                offline ||
+                                cancellation.pendingId === m.id
+                              }
                               onClick={() =>
                                 void run(async () => {
-                                  if (
-                                    !window.confirm(
-                                      "Avez-vous vérifié le livreur attribué et remis physiquement ce colis ?",
-                                    )
-                                  )
-                                    return;
-                                  await rpc("operator_confirm_pickup", {
+                                  await rpc("operator_set_ready", {
                                     p_delivery_id: m.id,
-                                    p_request_id: crypto.randomUUID(),
+                                    p_ready: true,
+                                    p_ready_at: new Date().toISOString(),
                                   });
-                                  setChallenge(null);
-                                  setNotice("La remise du colis au livreur est confirmée.");
+                                  setNotice(
+                                    "Le colis est prêt pour le retrait.",
+                                  );
                                   await refresh();
                                 })
                               }
                             >
-                              Confirmer la remise physique
+                              Colis prêt
                             </Button>
-                          </>
-                        )}
-                      </div>
-                      {challenge?.id === m.id && (
-                        <div className="bg-muted rounded-lg p-4">
-                          <p className="text-xs">
-                            À saisir dans l’application du livreur attribué
-                          </p>
-                          <p className="font-mono text-3xl tracking-widest my-2">
-                            {new Date(challenge.expires_at).getTime() > now
-                              ? challenge.pin
-                              : "Expiré"}
-                          </p>
-                          <p className="text-xs">
-                            {m.pickup_acknowledged_at
-                              ? "Code validé par le livreur. Confirmez après remise du colis."
-                              : "En attente de validation du livreur."}
-                          </p>
+                          )}
+                          {m.status === "at_pickup" && (
+                            <>
+                              <Button
+                                disabled={
+                                  busy ||
+                                  offline ||
+                                  cancellation.pendingId === m.id
+                                }
+                                onClick={() =>
+                                  void run(async () => {
+                                    const c = await rpc<{
+                                      pin: string;
+                                      expires_at: string;
+                                    }>("operator_issue_pickup", {
+                                      p_delivery_id: m.id,
+                                    });
+                                    setNow(Date.now());
+                                    setChallenge({ id: m.id, ...c });
+                                    setNotice(
+                                      "Le code de retrait est affiché sur la livraison concernée.",
+                                    );
+                                  })
+                                }
+                              >
+                                Afficher le code de retrait
+                              </Button>
+                              <Button
+                                variant="yolo"
+                                disabled={
+                                  busy ||
+                                  offline ||
+                                  cancellation.pendingId === m.id ||
+                                  !m.pickup_acknowledged_at
+                                }
+                                onClick={() => {
+                                  const requestId = crypto.randomUUID();
+                                  setSelectedDeliveryId(null);
+                                  openAction({
+                                    title: "Confirmer la remise du colis",
+                                    description:
+                                      "Avez-vous vérifié le livreur attribué et remis physiquement ce colis ?",
+                                    confirm: "Confirmer la remise",
+                                    onConfirm: async () => {
+                                      await rpc("operator_confirm_pickup", {
+                                        p_delivery_id: m.id,
+                                        p_request_id: requestId,
+                                      });
+                                      setChallenge(null);
+                                      setNotice(
+                                        "La remise du colis au livreur est confirmée.",
+                                      );
+                                      await refresh();
+                                    },
+                                  });
+                                }}
+                              >
+                                Confirmer la remise physique
+                              </Button>
+                            </>
+                          )}
                         </div>
-                      )}
-                    </article>
-                  ))
+                        {challenge?.id === m.id && (
+                          <div className="bg-muted rounded-lg p-4">
+                            <p className="text-xs">
+                              À saisir dans l’application du livreur attribué
+                            </p>
+                            <p className="font-mono text-3xl tracking-widest my-2">
+                              {new Date(challenge.expires_at).getTime() > now
+                                ? challenge.pin
+                                : "Expiré"}
+                            </p>
+                            <p className="text-xs">
+                              {m.pickup_acknowledged_at
+                                ? "Code validé par le livreur. Confirmez après remise du colis."
+                                : "En attente de validation du livreur."}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  />
                 )}
               </section>
             )}
           </BusinessWorkspace>
         )}
       </main>
+      {editingDelivery && (
+        <EditDelivery
+          key={editingDelivery.id}
+          delivery={editingDelivery}
+          onClose={() => setEditingDelivery(null)}
+          onSaved={(result) => {
+            if (result.recipient_code_changed) {
+              setProofs((current) =>
+                current.filter((p) => p.delivery_id !== result.delivery_id),
+              );
+              if (result.recipient_pin)
+                setProofs([
+                  {
+                    delivery_id: result.delivery_id,
+                    recipient_pin: result.recipient_pin,
+                    recipient_phone: result.recipient_phone,
+                    reference: result.reference,
+                  },
+                ]);
+            }
+            setNotice(
+              result.recipient_code_changed && !result.recipient_pin
+                ? "Livraison modifiée. Le code a changé ; réémettez-le si vous ne l’avez pas reçu."
+                : "La livraison a été modifiée.",
+            );
+            void refresh();
+          }}
+        />
+      )}
+      <Toaster position="bottom-right" />
+      {popup}
     </div>
   );
 }

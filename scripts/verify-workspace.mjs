@@ -28,7 +28,7 @@ await page.getByRole('button',{name:'Livraisons',exact:true}).click();
 await page.getByRole('button',{name:'Nouvelle demande',exact:true}).click();
 assert(await page.getByText('Espèces à collecter pour ce colis (FCFA)',{exact:true}).count()===0,'No product collection field');
 await page.getByRole('button',{name:'Fermer le formulaire',exact:true}).click();
-await page.getByRole('button',{name:'Colis prêt',exact:true}).click();
+await page.locator('.bw-delivery-desktop .bw-delivery-title').click();await page.getByRole('button',{name:'Colis prêt',exact:true}).click();await page.keyboard.press('Escape');
 await page.getByText('Le colis est prêt pour le retrait.',{exact:true}).waitFor();
 await page.getByText('La liste n’a pas pu être actualisée. Réessayez pour consulter son état récent.',{exact:true}).waitFor();
 assert(mutations===1,'Successful action not repeated when refresh fails');

@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { InlineEdit } from "@/components/ui/inline-edit";
+import { ContextHelp } from "@/components/ui/context-help";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,10 +29,12 @@ async function rpc(name: string, params?: Record<string, unknown>) {
   return data;
 }
 export function AccountSettings({
+  displayName,
   locations,
   isAdmin,
   onUpdated,
 }: {
+  displayName: string;
   locations: PickupLocation[];
   isAdmin: boolean;
   onUpdated: () => void;
@@ -70,7 +74,7 @@ export function AccountSettings({
     }
   }
   return (
-    <details className="border rounded-2xl bg-card p-5">
+    <details open className="border rounded-2xl bg-card p-5">
       <summary className="font-semibold cursor-pointer">
         Mon compte{isAdmin ? " et administration" : ""}
       </summary>
@@ -81,6 +85,17 @@ export function AccountSettings({
           </p>
         )}
         {notice && <p role="status">{notice}</p>}
+        <InlineEdit
+          label="Nom affiché"
+          value={displayName}
+          maxLength={80}
+          onSave={async (name) => {
+            const { error } = await supabase!.auth.updateUser({
+              data: { display_name: name },
+            });
+            if (error) throw Error(error.message);
+          }}
+        />
         <form
           className="grid gap-3 max-w-md"
           onSubmit={(e) => {
@@ -150,98 +165,15 @@ export function AccountSettings({
               Rechercher des livreurs maintenant
             </Button>
             {couriers.map((c) => (
-              <form
+              <CourierSettings
                 key={c.id}
-                className="border rounded-xl p-4 flex flex-wrap gap-3 items-end"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void run(async () => {
-                    await rpc("admin_update_courier", {
-                      p_id: c.id,
-                      p_approval: c.approval,
-                      p_capacity: c.max_active_parcels,
-                      p_vehicle: c.vehicle,
-                      p_plate: c.plate,
-                    });
-                  });
-                }}
-              >
-                <p className="w-full font-semibold">{c.full_name}</p>
-                <label className="grid gap-1 text-sm">
-                  Autorisation
-                  <select
-                    className="border rounded-md p-2"
-                    value={c.approval}
-                    onChange={(e) =>
-                      setCouriers((rows) =>
-                        rows.map((r) =>
-                          r.id === c.id
-                            ? { ...r, approval: e.target.value }
-                            : r,
-                        ),
-                      )
-                    }
-                  >
-                    <option value="pending">En attente</option>
-                    <option value="approved">Autorisé</option>
-                    <option value="suspended">Suspendu</option>
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Véhicule
-                  <Input
-                    value={c.vehicle}
-                    maxLength={80}
-                    required
-                    onChange={(e) =>
-                      setCouriers((rows) =>
-                        rows.map((r) =>
-                          r.id === c.id ? { ...r, vehicle: e.target.value } : r,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Plaque
-                  <Input
-                    value={c.plate}
-                    maxLength={40}
-                    onChange={(e) =>
-                      setCouriers((rows) =>
-                        rows.map((r) =>
-                          r.id === c.id ? { ...r, plate: e.target.value } : r,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label className="grid gap-1 text-sm">
-                  Capacité en colis
-                  <Input
-                    type="number"
-                    min={1}
-                    max={50}
-                    required
-                    value={c.max_active_parcels}
-                    onChange={(e) =>
-                      setCouriers((rows) =>
-                        rows.map((r) =>
-                          r.id === c.id
-                            ? {
-                                ...r,
-                                max_active_parcels: Number(e.target.value),
-                              }
-                            : r,
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <Button disabled={busy} type="submit">
-                  Enregistrer le livreur
-                </Button>
-              </form>
+                courier={c}
+                onSaved={(next) =>
+                  setCouriers((rows) =>
+                    rows.map((row) => (row.id === next.id ? next : row)),
+                  )
+                }
+              />
             ))}
           </section>
         )}
@@ -288,5 +220,121 @@ function PickupSetup({
         Activer ce point de retrait
       </Button>
     </section>
+  );
+}
+
+function CourierSettings({
+  courier,
+  onSaved,
+}: {
+  courier: Courier;
+  onSaved: (courier: Courier) => void;
+}) {
+  const [saving, setSaving] = useState(false),
+    [approval, setApproval] = useState(courier.approval),
+    [error, setError] = useState(""),
+    [notice, setNotice] = useState("");
+  const updateLock = useRef(false);
+  async function update(patch: Partial<Courier>) {
+    if (updateLock.current)
+      throw Error("Une modification est en cours. Réessayez dans un instant.");
+    updateLock.current = true;
+    const next = { ...courier, ...patch };
+    setSaving(true);
+    try {
+      await rpc("admin_update_courier", {
+        p_id: next.id,
+        p_approval: next.approval,
+        p_capacity: next.max_active_parcels,
+        p_vehicle: next.vehicle,
+        p_plate: next.plate,
+      });
+      onSaved(next);
+    } finally {
+      updateLock.current = false;
+      setSaving(false);
+    }
+  }
+  return (
+    <article className="border rounded-xl p-4 grid gap-3">
+      <h3 className="font-semibold">{courier.full_name}</h3>
+      <div className="bw-courier-fields">
+        <InlineEdit
+          label="Véhicule"
+          value={courier.vehicle || ""}
+          disabled={saving}
+          onSave={(vehicle) => update({ vehicle })}
+        />
+        <InlineEdit
+          label="Plaque"
+          value={courier.plate || ""}
+          maxLength={40}
+          disabled={saving}
+          onSave={(plate) => update({ plate })}
+        />
+        <InlineEdit
+          label="Capacité en colis"
+          value={String(courier.max_active_parcels)}
+          disabled={saving}
+          maxLength={2}
+          onSave={async (value) => {
+            if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 50)
+              throw Error("Indiquez un nombre entier entre 1 et 50.");
+            await update({ max_active_parcels: Number(value) });
+          }}
+        />
+      </div>
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (saving) return;
+          setError("");
+          setNotice("");
+          try {
+            await update({ approval });
+            setNotice("Autorisation mise à jour.");
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Veuillez réessayer.");
+          }
+        }}
+      >
+        <label className="grid gap-1 text-sm">
+          <span>
+            Autorisation{" "}
+            <ContextHelp label="Aide : autorisation du livreur">
+              Autoriser un livreur lui permet de recevoir des courses. Vérifiez
+              son identité et son véhicule avant de valider.
+            </ContextHelp>
+          </span>
+          <select
+            className="border rounded-md p-2"
+            disabled={saving}
+            value={approval}
+            onChange={(e) => setApproval(e.target.value)}
+          >
+            <option value="pending">En attente</option>
+            <option value="approved">Autorisé</option>
+            <option value="suspended">Suspendu</option>
+          </select>
+        </label>
+        <Button
+          type="submit"
+          disabled={saving || approval === courier.approval}
+        >
+          {saving ? "Enregistrement…" : "Valider l’autorisation"}
+        </Button>
+      </form>
+      {error && (
+        <p role="alert" className="text-destructive text-sm">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p role="status" className="text-sm">
+          {notice}
+        </p>
+      )}
+    </article>
   );
 }

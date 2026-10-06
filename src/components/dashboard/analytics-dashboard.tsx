@@ -1,3 +1,4 @@
+import { useActionPopup } from "@/components/ui/action-popup";
 import React, { useState } from "react";
 import {
   PackageCheck,
@@ -50,6 +51,7 @@ import { useStore } from "@/context/store-context";
 import { formatFCFA } from "@/lib/utils";
 
 export function AnalyticsDashboard() {
+  const {openAction, popup} = useActionPopup();
   const {
     deliveries,
     setActiveView,
@@ -186,15 +188,7 @@ export function AnalyticsDashboard() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Réinitialiser toutes les données de test ? Les livraisons créées seront supprimées."
-                )
-              ) {
-                resetAllDeliveries();
-              }
-            }}
+            onClick={() => openAction({title: "Réinitialiser les données locales ?", description: "Les livraisons de cet aperçu local seront supprimées.", confirm: "Réinitialiser", destructive: true, onConfirm: () => resetAllDeliveries()})}
             className="text-xs gap-1.5 text-muted-foreground hover:text-destructive"
             title="Effacer les livraisons de test"
           >
@@ -803,6 +797,7 @@ export function AnalyticsDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      {popup}
     </div>
   );
 }
