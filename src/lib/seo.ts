@@ -1,6 +1,6 @@
 export const SITE_URL = "https://business.yolo-hub.com";
 export const SITE_NAME = "Yolo Business";
-export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image.png`;
+export const DEFAULT_OG_IMAGE = `${SITE_URL}/og-yolo-delivery.png`;
 
 export interface PageMetadata {
   title: string;
